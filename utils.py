@@ -11,6 +11,14 @@ def combined_loss(outputs,targets,weights):
         loss += torch.nn.functional.cross_entropy(outputs[key],targets[key])*weights[key]
     return loss
 
+def model_inference(model,data,weights,dimensions,checkpointloc):
+    inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+    if checkpointloc is not None:
+        checkpoint = torch.load(checkpointloc)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+
+
 def model_train(epoch,model,optimizer,train_loader,weights,dimensions,accstop,logging,loggingfolder,checkpointloc):
     train_start = datetime.now().strftime('%d-%m-%Y_%H%M')
     if logging:
