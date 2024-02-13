@@ -18,8 +18,8 @@ from model_settings import settings_dict
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
 parser.add_argument('-r','--randomseed', help = 'Random seed, default = 2024', default = 2024)
-# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'inference')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
+# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'inference')
 # parser.add_argument('-ht','--hptune', help = 'if in training mode, tune hyperparameters, or fixed based on user input, default = tune', default = 'tune')
 # Probably won't need hyperparameter tuning, model does really well with minimal tuning, and computing resources are a major limitation
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
