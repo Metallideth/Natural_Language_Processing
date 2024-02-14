@@ -1,12 +1,7 @@
 # Importing stock ml libraries
 import numpy as np
 import pandas as pd
-import transformers
-import torch
-from torch.utils.data import Dataset, DataLoader, RandomSampler, SequentialSampler
-from transformers import DistilBertTokenizer, DistilBertModel
 from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 import argparse
 import pickle

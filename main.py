@@ -26,12 +26,12 @@ parser.add_argument('-l','--logging', help = 'boolean, set to True to compute an
 parser.add_argument('-lf','--loggingfolder', help = 'folder path for logging, default = logging/', default = 'logging/')
 parser.add_argument('-if','--inffolder', help = 'folder path for saving inference output, default = inference/', default = 'inference/')
 parser.add_argument('-tf','--testfolder', help = 'folder path for saving test output, default = test/', default = 'test/')
-# parser.add_argument('-cl','--checkpointloc', 
-#                     help = 'location of checkpoint for starting training, or for inference/testing, default = None', 
-#                     default = None)
 parser.add_argument('-cl','--checkpointloc', 
                     help = 'location of checkpoint for starting training, or for inference/testing, default = None', 
-                    default = "C:/Users/CoreySarcu/OneDrive - Netskope/netskope/checkpoints/12-02-2024_1415/12-02-2024_2238_epoch00_batch01900")
+                    default = None)
+# parser.add_argument('-cl','--checkpointloc', 
+#                     help = 'location of checkpoint for starting training, or for inference/testing, default = None', 
+#                     default = "C:/Users/CoreySarcu/OneDrive - Netskope/netskope/checkpoints/12-02-2024_1415/12-02-2024_2238_epoch00_batch01900")
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
                     default = 'Data/train.pkl')
@@ -49,9 +49,11 @@ TESTFOLDER = args.testfolder
 CHECKPOINTLOC = args.checkpointloc
 INPUTDATA = args.inputdata
 VALDATA = args.valdata
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 if MODELMODE == 'training':
     model = DistilBERTClass()
+    model.to(DEVICE)
     MAX_LEN = settings_dict['MAX_LEN']
     TRAIN_BATCH_SIZE = settings_dict['TRAIN_BATCH_SIZE']
     VALID_BATCH_SIZE = settings_dict['VALID_BATCH_SIZE']
@@ -87,6 +89,7 @@ if MODELMODE == 'training':
     
 if  MODELMODE == 'inference':
     model = DistilBERTClass()
+    model.to(DEVICE)
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
     WEIGHTS = settings_dict['WEIGHTS']
     DIMENSIONS = settings_dict['DIMENSIONS']
