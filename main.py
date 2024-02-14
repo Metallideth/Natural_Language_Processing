@@ -34,10 +34,12 @@ parser.add_argument('-cl','--checkpointloc',
 #                     default = "C:/Users/CoreySarcu/OneDrive - Netskope/netskope/checkpoints/12-02-2024_1415/12-02-2024_2238_epoch00_batch01900")
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
-                    default = 'Data/train.pkl')
+                    # default = 'Data/train.pkl')
+                    default = 'Data/train_small.pkl')
 parser.add_argument('-vd','--valdata', 
                     help = 'path to validation data, for use in model mode training, default = Data/val.pkl', 
-                    default = 'Data/val.pkl')
+                    # default = 'Data/val.pkl')
+                    default = 'Data/val_small.pkl')
 args = parser.parse_args()
 RANDOMSEED = args.randomseed
 MODELMODE = args.modelmode

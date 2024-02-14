@@ -103,7 +103,7 @@ def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,lo
     
     return weights
 
-def model_val(model,val_loader,weights,dimensions,logging,loggingfolder,device,train_start):
+def model_val(epoch,model,val_loader,weights,dimensions,device):
     run_accuracy = {}
     avg_accuracy_latest_1000_batches = {}
     run_conf_mat = {}
@@ -175,18 +175,24 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
         model.train()
         print('Training run on epoch {:02}'.format(epoch))
         weights = model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,train_start,checkpointloc)
+            # Re-set loss weights according to accuracy in latest 1000 batches to bring into the validation
         model.eval()
         print('Validation run on epoch {:02}'.format(epoch))
-        val_accuracy, val_loss = model_val(model,val_loader,weights,dimensions,logging,loggingfolder,device,train_start)
-        print('Validation accuracy: {:.4f}, loss: {:.4f}'.format(val_accuracy,val_loss))
+        val_accuracy, val_loss = model_val(epoch,model,val_loader,weights,dimensions,device)
+        print('Validation results - Loss: {:.4f}, Accuracy: Role {:.4f}, Function {:.4f}, Level {:.4f}'.format(val_loss,
+                                                                                                               val_accuracy['Role'],
+                                                                                                               val_accuracy['Function'],
+                                                                                                               val_accuracy['Level']))
         torch.save({
                 'epoch':epoch,
                 'model_state_dict':model.state_dict(),
                 'optimizer_state_dict':optimizer.state_dict(),
+                'validation_accuracy':val_accuracy,
+                'validation_loss':val_loss
             },'checkpoints/{}/epoch{:02}'.format(train_start,epoch))
         acc_flag = True
         for key in weights:
-            if val_accuracy[key] < accstop:
+            if val_accuracy[key] < accstop[key]:
                 acc_flag = False
         if acc_flag:
             break # accuracy threshold is reached

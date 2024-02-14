@@ -97,21 +97,35 @@ for column in target_columns:
 train_data = train_data.reset_index().drop(columns='index')
 val_data = val_data.reset_index().drop(columns='index')
 test_data = test_data.reset_index().drop(columns='index')
-
+train_small = train_data.iloc[:1280]
+val_small = val_data.iloc[:1280]
+test_small = test_data.iloc[:1280]
 # Save final files
 
 train_data.to_csv(f'{DATAFOLDER}train.csv')
+train_small.to_csv(f'{DATAFOLDER}train_small.csv')
 val_data.to_csv(f'{DATAFOLDER}val.csv')
+val_small.to_csv(f'{DATAFOLDER}val_small.csv')
 test_data.to_csv(f'{DATAFOLDER}test.csv')
+test_small.to_csv(f'{DATAFOLDER}test_small.csv')
 
 with open(f'{DATAFOLDER}train.pkl','wb') as file:
     pickle.dump(train_data,file)
 
+with open(f'{DATAFOLDER}train_small.pkl','wb') as file:
+    pickle.dump(train_small,file)
+
 with open(f'{DATAFOLDER}val.pkl','wb') as file:
     pickle.dump(val_data,file)
+
+with open(f'{DATAFOLDER}val_small.pkl','wb') as file:
+    pickle.dump(val_small,file)
     
 with open(f'{DATAFOLDER}test.pkl','wb') as file:
     pickle.dump(test_data,file)
+
+with open(f'{DATAFOLDER}test_small.pkl','wb') as file:
+    pickle.dump(test_small,file)
 
 with open(f'{DATAFOLDER}index_label_mapping.pkl','wb') as file:
     pickle.dump(index_to_labels,file)
