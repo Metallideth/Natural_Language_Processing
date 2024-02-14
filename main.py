@@ -83,9 +83,10 @@ if MODELMODE == 'training':
 
     optimizer = torch.optim.Adam(params = model.parameters(),lr=LEARNING_RATE)
 
-    model_train_loop(epochs=EPOCHS, model=model, optimizer = optimizer, train_loader = train_loader, weights = WEIGHTS,
+    model_train_loop(epochs=EPOCHS, model=model, optimizer = optimizer, train_loader = train_loader, val_loader = val_loader,
+                    weights = WEIGHTS,
                      dimensions = DIMENSIONS,accstop=ACCSTOP,logging=LOGGING,loggingfolder=LOGGINGFOLDER,
-                     checkpointloc = CHECKPOINTLOC)
+                     checkpointloc = CHECKPOINTLOC, device = DEVICE)
     
 if  MODELMODE == 'inference':
     model = DistilBERTClass()
