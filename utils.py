@@ -101,7 +101,11 @@ def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,lo
         for key in weights:
             weights[key]*=3/norm_factor
     
-    return weights
+    epoch_training_accuracy = {}
+    for key in weights:
+        epoch_training_accuracy[key]=torch.tensor(run_accuracy[key]).mean().item()
+    epoch_training_loss = torch.tensor(run_loss).mean().item()
+    return weights, epoch_training_accuracy, epoch_training_loss
 
 def model_val(epoch,model,val_loader,weights,dimensions,device):
     run_accuracy = {}
@@ -161,7 +165,7 @@ def model_val(epoch,model,val_loader,weights,dimensions,device):
     return avg_accuracy_overall, avg_loss_overall
 
 def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dimensions,accstop,logging,loggingfolder,checkpointloc,device):
-    epoch_stats = {}
+    epoch_logging_list = []
     train_start = datetime.now().strftime('%d-%m-%Y_%H%M')
     if logging:
         os.mkdir(f'{loggingfolder}{train_start}')
@@ -174,8 +178,12 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
     for epoch in range(epochs):
         model.train()
         print('Training run on epoch {:02}'.format(epoch))
-        weights = model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,train_start,checkpointloc)
+        weights,epoch_training_accuracy,epoch_training_loss = model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,train_start,checkpointloc)
             # Re-set loss weights according to accuracy in latest 1000 batches to bring into the validation
+        print('Training results - Loss: {:.4f}, Accuracy: Role {:.4f}, Function {:.4f}, Level {:.4f}'.format(epoch_training_loss,
+                                                                                                             epoch_training_accuracy['Role'],
+                                                                                                            epoch_training_accuracy['Function'],
+                                                                                                            epoch_training_accuracy['Level']))
         model.eval()
         print('Validation run on epoch {:02}'.format(epoch))
         val_accuracy, val_loss = model_val(epoch,model,val_loader,weights,dimensions,device)
@@ -183,12 +191,19 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
                                                                                                                val_accuracy['Role'],
                                                                                                                val_accuracy['Function'],
                                                                                                                val_accuracy['Level']))
+        epoch_logging_list.append({
+            'training_loss':epoch_training_loss,
+            'training_accuracy':epoch_training_accuracy,
+            'validation_loss':val_loss,
+            'validation_accuracy':val_accuracy
+        })
+        if logging:
+            with open('{}{}/epoch{:02}_train_val_summary'.format(loggingfolder,train_start,epoch),'wb') as file:
+                    pickle.dump(epoch_logging_list, file) 
         torch.save({
                 'epoch':epoch,
                 'model_state_dict':model.state_dict(),
                 'optimizer_state_dict':optimizer.state_dict(),
-                'validation_accuracy':val_accuracy,
-                'validation_loss':val_loss
             },'checkpoints/{}/epoch{:02}'.format(train_start,epoch))
         acc_flag = True
         for key in weights:
