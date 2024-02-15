@@ -2,22 +2,40 @@ import torch
 from tqdm import tqdm
 from datetime import datetime
 import pickle
+import numpy as np
+import pandas as pd
 import os
 from model_settings import settings_dict
 
-def combined_loss(outputs,targets,weights):
+def combined_loss(outputs,targets,weights,reduction='mean'):
     loss = 0
     for key in targets.keys():
-        loss += torch.nn.functional.cross_entropy(outputs[key],targets[key])*weights[key]
+        loss += torch.nn.functional.cross_entropy(outputs[key],targets[key],reduction=reduction)*weights[key]
     return loss
 
-def model_inference(model,data,weights,dimensions,checkpointloc):
-    inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+def model_inference(model,data_loader,checkpointloc,device,model_mode,weights):
+    
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
         model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
-
+    combined_outputs = []
+    for _,data in tqdm(enumerate(data_loader,0), total=len(data_loader)):
+        output_logits = model(data['ids'].to(device),data['mask'].to(device))
+        outputs = []
+        for key in output_logits:
+            outputs.append(np.array(output_logits[key].argmax(dim=1).detach().cpu()).reshape(-1,1))
+        combined_outputs.append(np.concatenate(outputs,axis=1))
+        if model_mode == 'inference_loss':
+            targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
+            loss = combined_loss(output_logits,targets, weights, reduction='none')
+            combined_outputs.append(np.array(loss.detach().cpu()).reshape(-1,1))
+    combined_outputs = pd.DataFrame(np.concatenate(combined_outputs,axis=0))
+    colnames = ["".join(['Job ',key,' Predicted']) for key in output_logits]
+    if model_mode == 'inference_loss':
+        colnames.append('Loss')
+    combined_outputs.columns = colnames
+    return combined_outputs
 
 def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,
                 train_start,checkpointloc):
@@ -32,7 +50,7 @@ def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,lo
         avg_accuracy_latest_1000_batches[key] = []
         run_conf_mat[key] = torch.zeros((1,dimensions[key],dimensions[key]))
         conf_mat_latest_1000_batches[key] = torch.zeros((1,dimensions[key],dimensions[key]))
-    for _,data in tqdm(enumerate(train_loader, 0)):
+    for _,data in tqdm(enumerate(train_loader, 0), total=len(train_loader)):
         optimizer.zero_grad()
         
         outputs = model(data['ids'].to(device),data['mask'].to(device))
@@ -119,7 +137,7 @@ def model_val(epoch,model,val_loader,weights,dimensions,device):
         avg_accuracy_latest_1000_batches[key] = []
         run_conf_mat[key] = torch.zeros((1,dimensions[key],dimensions[key]))
         conf_mat_latest_1000_batches[key] = torch.zeros((1,dimensions[key],dimensions[key]))
-    for _,data in tqdm(enumerate(val_loader, 0)):
+    for _,data in tqdm(enumerate(val_loader, 0),total=len(val_loader)):
         
         outputs = model(data['ids'].to(device),data['mask'].to(device))
         targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
