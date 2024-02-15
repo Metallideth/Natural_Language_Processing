@@ -18,7 +18,6 @@ from distilbert_uncased_model import DistilBERTClass
 from utils import model_train_loop, model_inference
 from model_settings import settings_dict
 import pickle
-import keyboard
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
 parser.add_argument('-r','--randomseed', help = 'Random seed, default = 2024', default = 2024)
@@ -125,20 +124,24 @@ if MODELMODE == 'user_input':
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     print('Model loaded.')
-    print('Enter Job Title and model with output Role, Function, and Level. Press ESC to quit.')
-    while not keyboard.is_pressed("ESC"):
-        job_title = input('Job Title:')
-        inputs = tokenizer.encode_plus(job_title,
-                                        add_special_tokens = True,
-                                        max_length = MAX_LEN,
-                                        padding='max_length',
-                                        truncation = True)
-        ids = torch.tensor(inputs['input_ids']).unsqueeze(0).to(DEVICE)
-        mask = torch.tensor(inputs['attention_mask']).unsqueeze(0).to(DEVICE)
-        output_logits = model(ids,mask)
-        print('Predictions:')
-        for key in output_logits:
-            pred = encoder[f'Job {key}'][output_logits[key].argmax(dim=1)]
-            print(f'Job {key}: {pred}')    
+    print('Enter Job Title and model with output Role, Function, and Level. Press Ctrl + C to quit.')
+    try:
+        while True:
+            job_title = input('Job Title: ')
+            inputs = tokenizer.encode_plus(job_title,
+                                            add_special_tokens = True,
+                                            max_length = MAX_LEN,
+                                            padding='max_length',
+                                            truncation = True)
+            ids = torch.tensor(inputs['input_ids']).unsqueeze(0).to(DEVICE)
+            mask = torch.tensor(inputs['attention_mask']).unsqueeze(0).to(DEVICE)
+            output_logits = model(ids,mask)
+            print('Predictions:')
+            for key in output_logits:
+                pred = encoder[f'Job {key}'][output_logits[key].argmax(dim=1).item()]
+                print(f'Job {key}: {pred}')
+            print('')
+    except KeyboardInterrupt:
+        pass    
     
 
