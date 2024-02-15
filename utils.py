@@ -20,17 +20,22 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights):
         model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     combined_outputs = []
+    if model_mode == 'inference_loss':
+        combined_loss_outputs = []
     for _,data in tqdm(enumerate(data_loader,0), total=len(data_loader)):
         output_logits = model(data['ids'].to(device),data['mask'].to(device))
         outputs = []
         for key in output_logits:
             outputs.append(np.array(output_logits[key].argmax(dim=1).detach().cpu()).reshape(-1,1))
-        combined_outputs.append(np.concatenate(outputs,axis=1))
         if model_mode == 'inference_loss':
             targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
             loss = combined_loss(output_logits,targets, weights, reduction='none')
-            combined_outputs.append(np.array(loss.detach().cpu()).reshape(-1,1))
+            combined_loss_outputs.append(np.array(loss.detach().cpu()).reshape(-1,1))
+        combined_outputs.append(np.concatenate(outputs,axis=1))
     combined_outputs = pd.DataFrame(np.concatenate(combined_outputs,axis=0))
+    if model_mode == 'inference_loss':
+        combined_outputs = pd.concat([combined_outputs,pd.DataFrame(np.concatenate(combined_loss_outputs,axis=0))],
+                                     axis=1)
     colnames = ["".join(['Job ',key,' Predicted']) for key in output_logits]
     if model_mode == 'inference_loss':
         colnames.append('Loss')

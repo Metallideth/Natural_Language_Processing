@@ -18,11 +18,12 @@ from distilbert_uncased_model import DistilBERTClass
 from utils import model_train_loop, model_inference
 from model_settings import settings_dict
 import pickle
+import keyboard
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
 parser.add_argument('-r','--randomseed', help = 'Random seed, default = 2024', default = 2024)
 # parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'inference_loss')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'user_input')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-lf','--loggingfolder', help = 'folder path for logging, default = logging/', default = 'logging/')
 parser.add_argument('-if','--inffolder', help = 'folder path for saving inference output, default = inference/', default = 'inference/')
@@ -102,11 +103,42 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss'):
     data = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
     data_loader = DataLoader(data,**inf_params)
     inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+    print('Beginning inference...')
     inf_output = model_inference(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,device=DEVICE,
                                  model_mode = MODELMODE, weights = WEIGHTS)
+    print('Inference complete.')
     input_with_inf = pd.concat([data.data,inf_output],axis = 1)
     with open(f'{INFERENCEFOLDER}{inf_start}_inference.pkl','wb') as file:
         pickle.dump(input_with_inf, file)
     input_with_inf.to_csv(f'{INFERENCEFOLDER}{inf_start}_inference.csv')
+
+if MODELMODE == 'user_input':
+    model = DistilBERTClass()
+    model.to(DEVICE)
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
+    DIMENSIONS = settings_dict['DIMENSIONS']
+    MAX_LEN = settings_dict['MAX_LEN']
+    print('Loading model from checkpoint...')
+    checkpoint = torch.load(CHECKPOINTLOC)
+    with open('./Data/index_label_mapping.pkl','rb') as file:
+        encoder = pickle.load(file)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    print('Model loaded.')
+    print('Enter Job Title and model with output Role, Function, and Level. Press ESC to quit.')
+    while not keyboard.is_pressed("ESC"):
+        job_title = input('Job Title:')
+        inputs = tokenizer.encode_plus(job_title,
+                                        add_special_tokens = True,
+                                        max_length = MAX_LEN,
+                                        padding='max_length',
+                                        truncation = True)
+        ids = torch.tensor(inputs['input_ids']).unsqueeze(0).to(DEVICE)
+        mask = torch.tensor(inputs['attention_mask']).unsqueeze(0).to(DEVICE)
+        output_logits = model(ids,mask)
+        print('Predictions:')
+        for key in output_logits:
+            pred = encoder[f'Job {key}'][output_logits[key].argmax(dim=1)]
+            print(f'Job {key}: {pred}')    
     
 
