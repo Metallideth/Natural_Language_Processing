@@ -20,8 +20,8 @@ from model_settings import settings_dict
 import pickle
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
-# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'user_input')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
+# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'user_input')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
