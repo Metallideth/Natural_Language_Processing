@@ -8,10 +8,10 @@ settings_dict = {
     'WEIGHTS':{'Role':1,'Function':1,'Level':1},
     'INF_WEIGHTS':{'Role': 1.056, 'Function': 0.9566, 'Level': 0.9874},
     'DIMENSIONS':{'Role':6,'Function':5,'Level':6},
-    'ACCSTOP':{'Role':0.9,'Function':0.9,'Level':0.9},
+    'ACCSTOP':{'Role':0.999,'Function':0.999,'Level':0.999},
     'RANDOMSEED':2024,
     'LOGGINGFOLDER':'logging/',
     'INFERENCEFOLDER':'inference/',
     'TESTFOLDER':'test/',
-    'CHECKPOINTLOC':None
+    'CHECKPOINTLOC':'checkpoints/20-02-2024_2213/epoch09'
 }

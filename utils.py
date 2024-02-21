@@ -22,7 +22,7 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights):
     combined_outputs = []
     if model_mode == 'inference_loss':
         combined_loss_outputs = []
-    for _,data in tqdm(enumerate(data_loader,0), total=len(data_loader)):
+    for _,data in tqdm(enumerate(data_loader,0)):
         output_logits = model(data['ids'].to(device),data['mask'].to(device))
         outputs = []
         for key in output_logits:
@@ -55,7 +55,7 @@ def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,lo
         avg_accuracy_latest_1000_batches[key] = []
         run_conf_mat[key] = torch.zeros((1,dimensions[key],dimensions[key]))
         conf_mat_latest_1000_batches[key] = torch.zeros((1,dimensions[key],dimensions[key]))
-    for _,data in tqdm(enumerate(train_loader, 0), total=len(train_loader)):
+    for _,data in tqdm(enumerate(train_loader, 0)):
         optimizer.zero_grad()
         
         outputs = model(data['ids'].to(device),data['mask'].to(device))
@@ -144,7 +144,7 @@ def model_val(epoch,model,val_loader,weights,dimensions,device):
         avg_accuracy_latest_1000_batches[key] = []
         run_conf_mat[key] = torch.zeros((1,dimensions[key],dimensions[key]))
         conf_mat_latest_1000_batches[key] = torch.zeros((1,dimensions[key],dimensions[key]))
-    for _,data in tqdm(enumerate(val_loader, 0),total=len(val_loader)):
+    for _,data in tqdm(enumerate(val_loader, 0)):
         
         outputs = model(data['ids'].to(device),data['mask'].to(device))
         targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
