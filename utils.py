@@ -125,10 +125,12 @@ def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,lo
             weights[key]*=3/norm_factor
     
     epoch_training_accuracy = {}
+    epoch_conf_mat = {}
     for key in weights:
         epoch_training_accuracy[key]=torch.tensor(run_accuracy[key]).mean().item()
+        epoch_conf_mat[key] = run_conf_mat[key].sum(dim=0)
     epoch_training_loss = torch.tensor(run_loss).mean().item()
-    return weights, epoch_training_accuracy, epoch_training_loss
+    return weights, epoch_training_accuracy, epoch_training_loss, epoch_conf_mat
 
 def model_val(epoch,model,val_loader,weights,dimensions,device):
     run_accuracy = {}
@@ -182,10 +184,12 @@ def model_val(epoch,model,val_loader,weights,dimensions,device):
             print('Epoch: {:02}, Batch: {:05}, Last 1000 Batches - Loss: {:.4f}, Accuracy: Role ({:.4f}), Function ({:.4f}), Level({:.4f})'.format(epoch,_,avg_loss_latest_1000_batches[-1],avg_accuracy_latest_1000_batches['Role'][-1],avg_accuracy_latest_1000_batches['Function'][-1],avg_accuracy_latest_1000_batches['Level'][-1]),end='\r')
 
     avg_accuracy_overall = {}
+    conf_mat_overall = {}
     for key in weights:
         avg_accuracy_overall[key] = torch.tensor(run_accuracy[key]).mean().item()
+        conf_mat_overall[key] = run_conf_mat[key].sum(dim=0)
     avg_loss_overall = torch.tensor(run_loss).mean().item()
-    return avg_accuracy_overall, avg_loss_overall
+    return avg_accuracy_overall, avg_loss_overall, conf_mat_overall
 
 def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dimensions,accstop,logging,loggingfolder,checkpointloc,device):
     epoch_logging_list = []
@@ -201,7 +205,7 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
     for epoch in range(epochs):
         model.train()
         print('Training run on epoch {:02}'.format(epoch))
-        weights,epoch_training_accuracy,epoch_training_loss = model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,train_start,checkpointloc)
+        weights,epoch_training_accuracy,epoch_training_loss,epoch_conf_mat = model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,train_start,checkpointloc)
             # Re-set loss weights according to accuracy in latest 1000 batches to bring into the validation
         print('Training results - Loss: {:.4f}, Accuracy: Role {:.4f}, Function {:.4f}, Level {:.4f}'.format(epoch_training_loss,
                                                                                                              epoch_training_accuracy['Role'],
@@ -209,7 +213,7 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
                                                                                                             epoch_training_accuracy['Level']))
         model.eval()
         print('Validation run on epoch {:02}'.format(epoch))
-        val_accuracy, val_loss = model_val(epoch,model,val_loader,weights,dimensions,device)
+        val_accuracy, val_loss, val_conf_mat = model_val(epoch,model,val_loader,weights,dimensions,device)
         print('Validation results - Loss: {:.4f}, Accuracy: Role {:.4f}, Function {:.4f}, Level {:.4f}'.format(val_loss,
                                                                                                                val_accuracy['Role'],
                                                                                                                val_accuracy['Function'],
@@ -217,8 +221,10 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
         epoch_logging_list.append({
             'training_loss':epoch_training_loss,
             'training_accuracy':epoch_training_accuracy,
+            'training_conf_mat':epoch_conf_mat,
             'validation_loss':val_loss,
-            'validation_accuracy':val_accuracy
+            'validation_accuracy':val_accuracy,
+            'validtaion_conf_mat':val_conf_mat
         })
         if logging:
             with open('{}{}/epoch{:02}_train_val_summary'.format(loggingfolder,train_start,epoch),'wb') as file:
