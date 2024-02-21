@@ -10,10 +10,10 @@ parser = argparse.ArgumentParser(description='Setup data into training, validati
 parser.add_argument('-r','--randomseed', help = 'Random seed for data splitting, default = 2024', default = 2024)
 parser.add_argument('-v','--valsize', help = 'Size of the validation data, default = 0.1', default = 0.1)
 parser.add_argument('-t','--testsize', help = 'Size of the test data, default = 0.1', default = 0.1)
-parser.add_argument('-dp','--datapath', help = 'Path to overall data file, default = Data/Historical Lead Records.csv',
-                    default = 'Data/Historical Lead Records.csv')
-parser.add_argument('-de','--dataencoding', help = 'Encoding to use for reading the data file, default = ISO-8859-1',
-                    default = 'ISO-8859-1')
+parser.add_argument('-dp','--datapath', help = 'Path to overall data file, default = Data/Historical Lead Records - Condensed REMAPPED.csv',
+                    default = 'Data/Historical Lead Records - Condensed REMAPPED.csv')
+parser.add_argument('-de','--dataencoding', help = 'Encoding to use for reading the data file, default = utf-8',
+                    default = 'utf-8')
 parser.add_argument('-df','--datafolder', help = 'Path to datafolder to save data splits, default = Data/',
                     default = 'Data/')
 args = parser.parse_args()
@@ -31,37 +31,40 @@ def consolidate_records(path):
     # No need for rows with na input, we'll drop those
     data = data.loc[~data['Title'].isna()].reset_index().drop(columns='index')
     # We'll also drop rows with na in any one of the outputs, since we saw in EDA that accounts for a small portion of the data
+    data = data.loc[(data['Title'] != "#NAME?")].reset_index().drop(columns='index')
+    data = data.loc[(data['Title'] != '** NO LONGER WITH COMPANY **')].reset_index().drop(columns='index')
+    data = data.loc[data['Title'].str.contains('[A-Za-z]')].reset_index().drop(columns='index')
+    # Just some more odd data records that should be dropped
     data = data.loc[~(data['Job Role'].isna()|data['Job Function'].isna()|data['Job Level'].isna())].reset_index().drop(columns='index')
     # Need encoding change for weird characters to come through
     data = data.copy()
 
-    data = data.replace({'Job Role':['INformation Security', 'information security']}, 'Information Security')
-    data = data.replace({'Job Role':['Netoworking']}, 'Networking')
-    data = data.replace({'Job Role':['IT Facilities', 'IT', 'Senior Manager, Information Technology']}, 'IT General')
-    data = data.replace({'Job Role':['Business Systems']}, 'Systems')
-    data = data.replace({'Job Role':['Senior Manager, Security, Risk, and Compliance', 'IT/IS Compliance/Risk/Control Staff']}, 'Governance Risk Compliance')
-    data.loc[~data['Job Role'].isin(['Information Security','Networking','IT General','Systems','Governance Risk Compliance']) &
+    data = data.replace({'Job Role':['NETOWORKING']}, 'NETWORKING')
+    data = data.replace({'Job Role':['IT FACILITIES', 'IT', 'SENIOR MANAGER, INFORMATION TECHNOLOGY']}, 'IT GENERAL')
+    data = data.replace({'Job Role':['BUSINESS SYSTEMS']}, 'SYSTEMS')
+    data = data.replace({'Job Role':['SENIOR MANAGER, SECURITY, RISK, AND COMPLIANCE', 'IT/IS COMPLIANCE/RISK/CONTROL STAFF']}, 'GOVERNANCE RISK COMPLIANCE')
+    data.loc[~data['Job Role'].isin(['INFORMATION SECURITY','NETWORKING','IT GENERAL','SYSTEMS','GOVERNANCE RISK COMPLIANCE']) &
                 ~data['Job Role'].isna(),
-                data.columns == 'Job Role'] = 'Non-ICP'
+                data.columns == 'Job Role'] = 'NON-ICP'
     
-    data = data.replace({'Job Function':['Information Technology','IT - Security','IT - Network','Information Security, Information Technology','IT Operations','IT-Sec Admin','Director Global IT','Information Security, Information Technology, Enterprise Architecture','It','Information Technology, Information Technology Executive']},
+    data = data.replace({'Job Function':['INFORMATION TECHNOLOGY','IT - SECURITY','IT - NETWORK','INFORMATION SECURITY, INFORMATION TECHNOLOGY','IT OPERATIONS','IT-SEC ADMIN','DIRECTOR GLOBAL IT','INFORMATION SECURITY, INFORMATION TECHNOLOGY, ENTERPRISE ARCHITECTURE','INFORMATION TECHNOLOGY, INFORMATION TECHNOLOGY EXECUTIVE']},
                               'IT')
-    data = data.replace({'Job Function':['Engineering & Technical','Engineer SASE']},'Engineering')
-    data = data.replace({'Job Function':['Purchasing','Sourcing / Procurement']},'Procurement')
-    data = data.replace({'Job Function':['Legal','Risk, Legal Operations','Lawyer / Attorney','Governmental Affairs & Regulatory Law']},
-                                'Risk/Legal/Compliance')
-    data.loc[~data['Job Function'].isin(['IT','Engineering','Procurement','Risk/Legal/Compliance']) &
+    data = data.replace({'Job Function':['ENGINEERING & TECHNICAL','ENGINEER SASE']},'ENGINEERING')
+    data = data.replace({'Job Function':['PURCHASING','SOURCING / PROCUREMENT']},'PROCUREMENT')
+    data = data.replace({'Job Function':['LEGAL','RISK, LEGAL OPERATIONS','LAWYER / ATTORNEY','GOVERNMENTALK AFFAIRS & REGULATORY LAW']},
+                                'RISK/LEGAL/COMPLIANCE')
+    data.loc[~data['Job Function'].isin(['IT','ENGINEERING','PROCUREMENT','RISK/LEGAL/COMPLIANCE']) &
                 ~data['Job Function'].isna(),
-                data.columns == 'Job Function'] = 'Non-ICP'
+                data.columns == 'Job Function'] = 'NON-ICP'
     
-    data = data.replace({'Job Level':['Individual Contributor','contributor','contribtuor']},'Contributor')
-    data = data.replace({'Job Level':['Management','Manager Level','manager','Threat Hunting Manager','IT Security Manager']},'Manager')
-    data = data.replace({'Job Level':['Senior Executive','Exec.']},'Executive')
-    data = data.replace({'Job Level':['Director Level','IT Infrastructure Director','Director of Enterprise Cloud Business','IT Security Director']},'Director')
-    data = data.replace({'Job Level':['C-level','CxO','C level','C-suite','Director (It & Project) & Chief Information Security Officer','C Level']},'C-Level')
-    data.loc[~data['Job Level'].isin(['Contributor','Manager','Executive','Director','C-Level']) &
+    data = data.replace({'Job Level':['INDIVIDUAL CONTRIBUTOR','CONTRIBTUOR']},'CONTRIBUTOR')
+    data = data.replace({'Job Level':['MANAGEMENT','MANAGER LEVEL','MANAGER','THREAT HUNTING MANAGER','IT SECURITY MANAGER']},'MANAGER')
+    data = data.replace({'Job Level':['SENIOR EXECUTIVE','EXEC.']},'EXECUTIVE')
+    data = data.replace({'Job Level':['DIRECTOR LEVEL','IT INFRASTRUCTURE DIRECTOR','DIRECTOR OF ENTERPRISE CLOUD BUSINESS','IT SECURITY DIRECTOR']},'DIRECTOR')
+    data = data.replace({'Job Level':['CXO','C-SUITE','DIRECTOR (IT & PROJECT) & CHIEF INFORMATION SECURITY OFFICER','C LEVEL']},'C-LEVEL')
+    data.loc[~data['Job Level'].isin(['CONTRIBUTOR','MANAGER','EXECUTIVE','DIRECTOR','C-LEVEL']) &
                 ~data['Job Level'].isna(),
-                data.columns == 'Job Level'] = 'Unknown'
+                data.columns == 'Job Level'] = 'UNKNOWN'
     return data
 
 lead_data = consolidate_records(PATH)
