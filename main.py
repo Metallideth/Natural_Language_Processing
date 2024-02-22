@@ -15,9 +15,10 @@ from netskope_dataloader import NetSkopeDataset
 from distilbert_uncased_model import DistilBERTClass
 # from distilbert_uncased_model_frozen import DistilBERTClass
 # from distilbert_uncased_model_truncated import DistilBERTClass
-from utils import model_train_loop, model_inference
+from utils import model_train_loop, model_inference, model_val
 from model_settings import settings_dict
 import pickle
+import os
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
 parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
@@ -136,4 +137,40 @@ if MODELMODE == 'user_input':
     except KeyboardInterrupt:
         pass    
     
+if MODELMODE == 'test':
+    model = DistilBERTClass()
+    model.to(DEVICE)
+    MAX_LEN = settings_dict['MAX_LEN']
+    TRAIN_BATCH_SIZE = settings_dict['TRAIN_BATCH_SIZE']
+    VALID_BATCH_SIZE = settings_dict['VALID_BATCH_SIZE']
+    WEIGHTS = settings_dict['WEIGHTS']
+    DIMENSIONS = settings_dict['DIMENSIONS']
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
 
+    test = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
+
+    test_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+    os.mkdir(f'{TESTFOLDER}{test_start}')
+
+    test_params = {
+        'batch_size':VALID_BATCH_SIZE,
+        'shuffle':False,
+        'num_workers':0
+    }
+
+    checkpoint = torch.load(CHECKPOINTLOC)
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    test_loader = DataLoader(test,**test_params)
+    
+    test_accuracy, test_loss, test_conf_mat = model_val(0,model,test_loader,WEIGHTS,DIMENSIONS,DEVICE)
+
+    print('Test results - Loss: {:.4f}, Accuracy: Role {:.4f}, Function {:.4f}, Level {:.4f}'.format(test_loss,
+        test_accuracy['Role'],test_accuracy['Function'],test_accuracy['Level']))
+    test_stats = {
+        'test_loss':test_loss,
+        'test_accuracy':test_accuracy,
+        'test_conf_mat':test_conf_mat
+    }
+    with open('{}{}/test_summary'.format(TESTFOLDER,test_start),'wb') as file:
+            pickle.dump(test_stats, file) 

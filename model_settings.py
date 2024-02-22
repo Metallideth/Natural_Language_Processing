@@ -6,12 +6,12 @@ settings_dict = {
     'EPOCHS':10,
     'LEARNING_RATE':1e-05,
     'WEIGHTS':{'Role':1,'Function':1,'Level':1},
-    'INF_WEIGHTS':{'Role': 1.056, 'Function': 0.9566, 'Level': 0.9874},
+    'INF_WEIGHTS':{'Role': 1.0087123775354698, 'Function': 0.9929106590511017, 'Level': 0.9983769634134283},
     'DIMENSIONS':{'Role':6,'Function':5,'Level':6},
     'ACCSTOP':{'Role':0.999,'Function':0.999,'Level':0.999},
     'RANDOMSEED':2024,
     'LOGGINGFOLDER':'logging/',
     'INFERENCEFOLDER':'inference/',
     'TESTFOLDER':'test/',
-    'CHECKPOINTLOC':'checkpoints/20-02-2024_2213/epoch09'
+    'CHECKPOINTLOC':'checkpoints/21-02-2024_0846/epoch00'
 }

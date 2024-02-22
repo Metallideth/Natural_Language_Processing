@@ -224,7 +224,7 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
             'training_conf_mat':epoch_conf_mat,
             'validation_loss':val_loss,
             'validation_accuracy':val_accuracy,
-            'validtaion_conf_mat':val_conf_mat
+            'validation_conf_mat':val_conf_mat
         })
         if logging:
             with open('{}{}/epoch{:02}_train_val_summary'.format(loggingfolder,train_start,epoch),'wb') as file:
