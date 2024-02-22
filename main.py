@@ -117,7 +117,7 @@ if MODELMODE == 'user_input':
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     print('Model loaded.')
-    print('Enter Job Title and model with output Role, Function, and Level. Press Ctrl + C to quit.')
+    print('Enter Job Title and model will output Role, Function, and Level. Press Ctrl + C to quit.')
     try:
         while True:
             job_title = input('Job Title: ')
