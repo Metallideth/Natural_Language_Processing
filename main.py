@@ -15,14 +15,14 @@ from netskope_dataloader import NetSkopeDataset
 from distilbert_uncased_model import DistilBERTClass
 # from distilbert_uncased_model_frozen import DistilBERTClass
 # from distilbert_uncased_model_truncated import DistilBERTClass
-from utils import model_train_loop, model_inference, model_val
+from utils import model_train_loop, model_inference, model_val, gradcam_eval
 from model_settings import settings_dict
 import pickle
 import os
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'user_input')
+# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'gradcam_eval')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
@@ -173,4 +173,27 @@ if MODELMODE == 'test':
         'test_conf_mat':test_conf_mat
     }
     with open('{}{}/test_summary'.format(TESTFOLDER,test_start),'wb') as file:
-            pickle.dump(test_stats, file) 
+            pickle.dump(test_stats, file)
+
+if MODELMODE == 'gradcam_eval':
+    model = DistilBERTClass()
+    model.to(DEVICE)
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
+    WEIGHTS = settings_dict['INF_WEIGHTS']
+    DIMENSIONS = settings_dict['DIMENSIONS']
+    MAX_LEN = settings_dict['MAX_LEN']
+    GRADCAM_BATCH_SIZE = settings_dict['GRADCAM_BATCH_SIZE']
+    inf_params = {
+        'batch_size':GRADCAM_BATCH_SIZE,
+        'shuffle':False,
+        'num_workers':0
+    }
+    data = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
+    data_loader = DataLoader(data,**inf_params)
+    inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+    print('Beginning gradcam evaluation...')
+    inf_output = gradcam_eval(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,
+                              device=DEVICE,weights = WEIGHTS,tokenizer = tokenizer)
+    print('Gradcam evaluation complete.')
+    with open(f'{INFERENCEFOLDER}{inf_start}_gradcam_output.pkl','wb') as file:
+        pickle.dump(inf_output,file)

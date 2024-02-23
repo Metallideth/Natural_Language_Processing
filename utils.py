@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import os
 from model_settings import settings_dict
+from collections import defaultdict
 
 def combined_loss(outputs,targets,weights,reduction='mean'):
     loss = 0
@@ -240,3 +241,46 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
                 acc_flag = False
         if acc_flag:
             break # accuracy threshold is reached
+
+def gradcam_eval(model,data_loader,checkpointloc,device,weights,tokenizer):
+    # inspired by code at https://medium.com/apache-mxnet/let-sentiment-classification-model-speak-for-itself-using-grad-cam-88292b8e4186
+    if checkpointloc is not None:
+        checkpoint = torch.load(checkpointloc)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    sequence_list = []
+    for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
+        output_logits = model(data['ids'].to(device),data['mask'].to(device))
+        targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
+        loss = combined_loss(output_logits,targets, weights, reduction='none')
+        loss.backward()
+        # The layer we're interested in is the word embeddings layer
+        mid_layer = model.l1.embeddings.word_embeddings
+        # Calculate the gradient for each embedding based on the loss. Only the gradients corresponding to
+        # tokens that were included in the input will be nonzero
+        token_grad_mean = mid_layer.weight.grad.mean(axis = 1).detach()
+        # Normalizing by number of tokens, including special [CLS] (start) and [SEP] (end) tokens
+        global_grad_mean = token_grad_mean/(data['mask'].sum())
+        # Since the above is a gradient vector equal to the length of the embedded vocabulary, use data['ids'] to
+        # pull the correct indices
+        token_grads = global_grad_mean[data['ids']].unsqueeze(2)
+        activations = model.l1.embeddings.word_embeddings(data['ids'].to(device)).detach()
+        # Broadcast both together and sum up by token
+        token_grad_act_product = (token_grads * activations).sum(axis = 2)
+        # Take relu - only positive results returned
+        positive_token_product = torch.relu(token_grad_act_product)
+        # Normalize results to add up to 100
+        normalized_token_scores = (positive_token_product/positive_token_product.sum()).squeeze()
+        # Return decoded tokens for this sequence
+        decoded_tokens = tokenizer.decode(data['ids'].squeeze()).upper()
+        decoded_tokens_list = decoded_tokens.split(" ")
+        # Create a dictionary of nonzero tokens and their associated values
+        # This essentially multiplies the effect of words that appear multiple times in the sequence
+        # This isn't perfect, but I'm going to assume this doesn't happen that much
+        this_sequence_dict = defaultdict(int)
+        for token,importance in zip(decoded_tokens_list,normalized_token_scores.cpu().numpy()):
+            if importance != 0:
+                this_sequence_dict[token] += importance 
+        sequence_list.append(this_sequence_dict)
+
+    return sequence_list
