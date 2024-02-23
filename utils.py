@@ -14,6 +14,10 @@ def combined_loss(outputs,targets,weights,reduction='mean'):
         loss += torch.nn.functional.cross_entropy(outputs[key],targets[key],reduction=reduction)*weights[key]
     return loss
 
+def partial_loss(outputs,targets,reduction='mean'):
+    loss = torch.nn.functional.cross_entropy(outputs,targets,reduction=reduction)
+    return loss
+
 def model_inference(model,data_loader,checkpointloc,device,model_mode,weights):
     
     if checkpointloc is not None:
@@ -250,37 +254,45 @@ def gradcam_eval(model,data_loader,checkpointloc,device,weights,tokenizer):
     model.eval()
     sequence_list = []
     for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
-        output_logits = model(data['ids'].to(device),data['mask'].to(device))
+        this_sequence_dict = {}
         targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
-        loss = combined_loss(output_logits,targets, weights, reduction='none')
-        loss.backward()
-        # The layer we're interested in is the word embeddings layer
-        mid_layer = model.l1.embeddings.word_embeddings
-        # Calculate the gradient for each embedding based on the loss. Only the gradients corresponding to
-        # tokens that were included in the input will be nonzero
-        token_grad_mean = mid_layer.weight.grad.mean(axis = 1).detach()
-        # Normalizing by number of tokens, including special [CLS] (start) and [SEP] (end) tokens
-        global_grad_mean = token_grad_mean/(data['mask'].sum())
-        # Since the above is a gradient vector equal to the length of the embedded vocabulary, use data['ids'] to
-        # pull the correct indices
-        token_grads = global_grad_mean[data['ids']].unsqueeze(2)
-        activations = model.l1.embeddings.word_embeddings(data['ids'].to(device)).detach()
-        # Broadcast both together and sum up by token
-        token_grad_act_product = (token_grads * activations).sum(axis = 2)
-        # Take relu - only positive results returned
-        positive_token_product = torch.relu(token_grad_act_product)
-        # Normalize results to add up to 100
-        normalized_token_scores = (positive_token_product/positive_token_product.sum()).squeeze()
-        # Return decoded tokens for this sequence
-        decoded_tokens = tokenizer.decode(data['ids'].squeeze()).upper()
-        decoded_tokens_list = decoded_tokens.split(" ")
-        # Create a dictionary of nonzero tokens and their associated values
-        # This essentially multiplies the effect of words that appear multiple times in the sequence
-        # This isn't perfect, but I'm going to assume this doesn't happen that much
-        this_sequence_dict = defaultdict(int)
-        for token,importance in zip(decoded_tokens_list,normalized_token_scores.cpu().numpy()):
-            if importance != 0:
-                this_sequence_dict[token] += importance 
+        for key in targets:
+            output_logits = model(data['ids'].to(device),data['mask'].to(device))
+            decoded_tokens_list,normalized_token_scores,loss = gradcam_loss_and_grad_backprop(output_logits,targets,key,model,data,tokenizer,device)
+            # Needed to avoid infinite backpropagation graph
+            # Create a dictionary of nonzero tokens and their associated values
+            # This essentially multiplies the effect of words that appear multiple times in the sequence
+            # This isn't perfect, but I'm going to assume this doesn't happen that much
+            this_sequence_dict[key] = defaultdict(int)
+            for token,importance in zip(decoded_tokens_list,normalized_token_scores.cpu().numpy()):
+                if importance != 0:
+                    this_sequence_dict[key][token] += importance
+                    this_sequence_dict['{} Loss'.format(key)] = loss
         sequence_list.append(this_sequence_dict)
 
     return sequence_list
+
+def gradcam_loss_and_grad_backprop(output_logits,targets,key,model,data,tokenizer,device):
+    loss = partial_loss(output_logits[key],targets[key], reduction='none')
+    loss.backward()
+    # The layer we're interested in is the word embeddings layer
+    mid_layer = model.l1.embeddings.word_embeddings
+    # Calculate the gradient for each embedding based on the loss. Only the gradients corresponding to
+    # tokens that were included in the input will be nonzero
+    token_grad_mean = mid_layer.weight.grad.mean(axis = 1).detach()
+    # Normalizing by number of tokens, including special [CLS] (start) and [SEP] (end) tokens
+    global_grad_mean = token_grad_mean/(data['mask'].sum())
+    # Since the above is a gradient vector equal to the length of the embedded vocabulary, use data['ids'] to
+    # pull the correct indices
+    token_grads = global_grad_mean[data['ids']].unsqueeze(2)
+    activations = model.l1.embeddings.word_embeddings(data['ids'].to(device)).detach()
+    # Broadcast both together and sum up by token
+    token_grad_act_product = (token_grads * activations).sum(axis = 2)
+    # Take relu - only positive results returned
+    positive_token_product = torch.relu(token_grad_act_product)
+    # Normalize results to add up to 100
+    normalized_token_scores = (positive_token_product/positive_token_product.sum()).squeeze()
+    # Return decoded tokens for this sequence
+    decoded_tokens = tokenizer.decode(data['ids'].squeeze()).upper()
+    decoded_tokens_list = decoded_tokens.split(" ")
+    return decoded_tokens_list,normalized_token_scores,loss.item()
