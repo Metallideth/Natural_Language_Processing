@@ -8,6 +8,10 @@ import os
 from model_settings import settings_dict
 from collections import defaultdict
 import copy
+from transformers import DistilBertModel
+import captum
+from captum.attr import IntegratedGradients
+import distilbert_uncased_model_role, distilbert_uncased_model_function, distilbert_uncased_model_level
 
 def combined_loss(outputs,targets,weights,reduction='mean'):
     loss = 0
@@ -247,7 +251,7 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
         if acc_flag:
             break # accuracy threshold is reached
 
-def gradcam_eval(model,data_loader,checkpointloc,device,weights,tokenizer,encoder):
+def gradcam_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     # inspired by code at https://medium.com/apache-mxnet/let-sentiment-classification-model-speak-for-itself-using-grad-cam-88292b8e4186
     # GradCAM explained in https://arxiv.org/pdf/1610.02391.pdf for image modeling
     if checkpointloc is not None:
@@ -256,7 +260,32 @@ def gradcam_eval(model,data_loader,checkpointloc,device,weights,tokenizer,encode
     model.eval()
     model_augment = copy.deepcopy(model)
     model_augment.eval()
+    base_model = DistilBertModel.from_pretrained("distilbert-base-uncased")
+    base_model.to(device)
+    # Modify state dict to change parameters
+    # model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][0,0]=50000000
     sequence_list = []
+    model_role = distilbert_uncased_model_role.DistilBERTClass()
+    model_function = distilbert_uncased_model_function.DistilBERTClass()
+    model_level = distilbert_uncased_model_level.DistilBERTClass()
+    model_role.to(device)
+    model_function.to(device)
+    model_level.to(device)
+    # model_role.children() = [x for x in model.children]
+    role_state_dict = model_role.state_dict()
+    function_state_dict = model_function.state_dict()
+    level_state_dict = model_level.state_dict()
+    for role_key, function_key, level_key in zip(model_role.state_dict(), model_function.state_dict(), model_level.state_dict()):
+        role_state_dict[role_key] = model.state_dict()[role_key]
+        function_state_dict[function_key] = model.state_dict()[function_key]
+        level_state_dict[level_key] = model.state_dict()[level_key]
+    model_role.load_state_dict(role_state_dict)
+    model_function.load_state_dict(function_state_dict)
+    model_level.load_state_dict(level_state_dict)
+    model_role.eval()
+    model_function.eval()
+    model_level.eval()
+    ig = IntegratedGradients(model_role)
     for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
         this_sequence_dict = {}
         targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
@@ -266,71 +295,61 @@ def gradcam_eval(model,data_loader,checkpointloc,device,weights,tokenizer,encode
             output_logits = model(data['ids'].to(device),data['mask'].to(device))
             # Get the predicted label and the actual label returned here, and a flag if the prediction
             # was correct
-            pred_label = encoder['Job {}'.format(key)][output_logits[key].squeeze().argmax().item()]
+            pred_index = output_logits[key].squeeze().argmax().item()
+            pred_label = encoder['Job {}'.format(key)][pred_index]
+            pred_score = output_logits[key].squeeze().max()
             target_label = encoder['Job {}'.format(key)][targets[key].item()]
             correct_prediction = pred_label == target_label
-            # Pull the non-normalized logit for the prediction to form the endpoint to backpropagate
-            # from
-            output_pred_score = output_logits[key].squeeze().max()
-            # Create a dictionary of nonzero tokens and their associated values
-            # This essentially multiplies the effect of words that appear multiple times in the sequence
-            # This isn't perfect, but I'm going to assume this doesn't happen that much
-            output_pred_score.backward()
-            # The layer we're interested in is the word embeddings layer
             token_ids = data['ids'].squeeze().to(device)
-            distinct_tokens = token_ids[token_masks_vec.bool()].unique()
-            # For factor importance, we will use the method of integrated gradients, explained here:
-            # https://medium.com/@madhubabu.adiki/integrated-gradients-for-natural-language-processing-from-scratch-c81c50c5bc4d
-            word_embeddings = model.l1.embeddings.word_embeddings
-            # We'll also add position embeddings - this contains information of where the word appears in the sequence
-            # The embedded representation of each token is a sum of word and position embeddings
-            # For tokens that appear multiple times in a sequence, the only difference is the position embedding. 
-            # In consideration of this, I'll average the embeddings for that token.
-            position_embeddings = model.l1.embeddings.position_embeddings
-            # The word embeddings contains an entry for every single token in the entire vocabulary, so we only want to
-            # pull the embeddings that appear in this sequence. We also only want to pull the position embeddings for
-            # the first 64 tokens, since that's the max sequence length we have
-            # For my purposes, I will zero out everything except for the tokens corresponding to input words
             token_masks_vec = torch.tensor([x not in torch.tensor(tokenizer.all_special_ids).to(device) for x in token_ids]).int().to(device)
-            token_masks = token_masks_vec.unsqueeze(1)
-            token_embeddings = (word_embeddings.weight[token_ids] + position_embeddings.weight[:len(token_ids),:]).detach()*token_masks
-            # There is also a sequence embedding for samples with multiple sequences, but this is not an issue here since
-            # there's only one sequence per sample in our data, and Distilbert also removed this aspect from the larger
-            # BERT model anyways.
-            # Calculate the gradient for each embedding based on the output predicted score
-            token_grad = (word_embeddings.weight.grad[token_ids] + position_embeddings.weight.grad[:len(token_ids),:]).detach()*token_masks
-            # Before continuing, we will consolidate any instances of tokens that appear multiple times in the text by averaging them
-            token_embeddings_condensed = torch.tensor([]).to(device)
-            token_grad_condensed = torch.tensor([]).to(device)
-            for token in distinct_tokens:
-                this_index = token_ids == token
-                this_token_embeddings = token_embeddings[this_index]
-                this_token_grad = token_grad[this_index]
-                token_embeddings_condensed = torch.concat((token_embeddings_condensed,
-                                                           this_token_embeddings.mean(axis=0).unsqueeze(0)))
-                token_grad_condensed = torch.concat((token_grad_condensed,
-                                                     this_token_grad.mean(axis=0).unsqueeze(0)))
-            # This is where I diverge from what GradCAM is doing. Ultimately, what I'm interested in is a token that
-            # has very high impact on the positive predictiveness of the predicted result. In other words, a token that
-            # has very high gradients relative to the output prediction. Consider that embeddings are appropriate and
-            # shouldn't shift much in any direction; a sharp gradient would indicate that movement in that particular
-            # weight would result in a relatively large movement in the output. Assuming the output is correct,
-            # positive gradients signify that the weight should increase and negative gradients indicate that the weight should
-            # decrease. Embedded weights that are all zero effectively neutralize the impact of an input token. Therefore, we
-            # need to find some way to indicate either (1) high absolute value of embeddings with little to no gradien
-            token_avg_importance = (token_embeddings_condensed*token_grad_condensed).mean(axis=1)
-            # Normalize by the sum to get token importance
-            token_importance_norm = token_avg_importance.abs()/token_avg_importance.abs().sum()
             # Decoded tokens
-            decoded_tokens = tokenizer.decode(distinct_tokens).upper().split(" ")
-            decoded_sequence = tokenizer.decode((token_ids*token_masks_vec)[token_ids*token_masks_vec!=0]).upper().split(" ")
+            sequence_ex_special_tokens = (token_ids*token_masks_vec)[token_ids*token_masks_vec!=0]
+            distinct_tokens = sequence_ex_special_tokens.unique()
+            decoded_sequence = tokenizer.decode(sequence_ex_special_tokens).upper()
+            # Now to calculate integrated gradients as described in this article
+            # https://arxiv.org/pdf/2108.13654.pdf
+            weight_tensor = torch.arange(51)/50 #50-step integrated gradient
+            end_embeddings = model.state_dict()['l1.embeddings.word_embeddings.weight'][distinct_tokens]
+            start_embeddings = base_model.state_dict()['embeddings.word_embeddings.weight'][distinct_tokens]
+            integrated_gradients = torch.zeros(end_embeddings.shape).to(device)
+            # Calculate integrated gradients, one token at a time
+            for index,token in enumerate(distinct_tokens):
+                # Set embedding vector to baseline vector
+                model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token] = base_model.state_dict()[
+                    'embeddings.word_embeddings.weight'][token]
+                for weight in weight_tensor:
+                    # Since baseline is zero vector in this case, we can re-define word embeddings as weight multiplied
+                    # by their current embedding
+                    model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token] += weight*(
+                        end_embeddings[index,:]-start_embeddings[index,:])
+                    # Run forward pass
+                    output_logits_ig = model_augment(data['ids'].to(device),data['mask'].to(device))
+                    # Retrieve predicted label score
+                    pred_label_score = output_logits_ig[key].squeeze()[pred_index]
+                    # Run backwards pass
+                    pred_label_score.backward()
+                    # Retrieve gradient
+                    current_embeddings_grad = model_augment.l1.embeddings.word_embeddings.weight.grad[token]
+                    # Integrate the gradient
+                    integrated_gradients[index,:]+=(current_embeddings_grad*((
+                        end_embeddings[index,:]-start_embeddings[index,:])/len(weight_tensor)))
+                model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token] = end_embeddings[index,:]
+
+            # Since baseline is zero, we can complete integrated gradients by multiplying by end embeddings
+                
+            gradient_token_index = torch.tensor([x in sequence_ex_special_tokens for x in distinct_tokens]).to(device)
+            unnormalized_token_scores = integrated_gradients.mean(axis = 1)[gradient_token_index]
+            decoded_tokens = tokenizer.decode(distinct_tokens[gradient_token_index]).upper().split(" ")
+            normalized_token_scores = unnormalized_token_scores/unnormalized_token_scores.sum()
+            token_ranking = normalized_token_scores.argsort(descending=True)+1
             this_sequence_dict[key] = {
                 'Sequence':decoded_sequence,
                 'Prediction':pred_label,
                 'Target':target_label,
                 'Correct?':correct_prediction,
                 'Distinct_Tokens':decoded_tokens,
-                'Importance':{k:v.item() for k,v in zip(decoded_tokens,token_importance_norm)}
+                'Token_Importance':{k:v.item() for k,v in zip(decoded_tokens,normalized_token_scores)},
+                'Token_Rank':{k:v.item() for k,v in zip(decoded_tokens,token_ranking)}
             }
             
         sequence_list.append(this_sequence_dict)

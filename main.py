@@ -180,7 +180,6 @@ if MODELMODE == 'gradcam_eval':
     model = DistilBERTClass()
     model.to(DEVICE)
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
-    WEIGHTS = settings_dict['INF_WEIGHTS']
     DIMENSIONS = settings_dict['DIMENSIONS']
     MAX_LEN = settings_dict['MAX_LEN']
     GRADCAM_BATCH_SIZE = settings_dict['GRADCAM_BATCH_SIZE']
@@ -196,7 +195,7 @@ if MODELMODE == 'gradcam_eval':
         encoder = pickle.load(file)
     print('Beginning gradcam evaluation...')
     inf_output = gradcam_eval(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,
-                              device=DEVICE,weights = WEIGHTS,tokenizer = tokenizer,encoder = encoder)
+                              device=DEVICE,tokenizer = tokenizer,encoder = encoder)
     print('Gradcam evaluation complete.')
     with open(f'{INFERENCEFOLDER}{inf_start}_gradcam_output.pkl','wb') as file:
         pickle.dump(inf_output,file)
