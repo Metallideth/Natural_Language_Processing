@@ -8,10 +8,6 @@ import os
 from model_settings import settings_dict
 from collections import defaultdict
 import copy
-from transformers import DistilBertModel
-import captum
-from captum.attr import LayerIntegratedGradients
-import distilbert_uncased_model_role, distilbert_uncased_model_function, distilbert_uncased_model_level
 
 def combined_loss(outputs,targets,weights,reduction='mean'):
     loss = 0
