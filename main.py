@@ -41,6 +41,7 @@ CHECKPOINTLOC = settings_dict['CHECKPOINTLOC']
 INPUTDATA = args.inputdata
 VALDATA = args.valdata
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+ENCODER = settings_dict['ENCODER']
 
 if MODELMODE == 'training':
     model = DistilBERTClass()
@@ -112,7 +113,7 @@ if MODELMODE == 'user_input':
     MAX_LEN = settings_dict['MAX_LEN']
     print('Loading model from checkpoint...')
     checkpoint = torch.load(CHECKPOINTLOC)
-    with open('./Data/index_label_mapping.pkl','rb') as file:
+    with open(ENCODER,'rb') as file:
         encoder = pickle.load(file)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
@@ -191,9 +192,11 @@ if MODELMODE == 'gradcam_eval':
     data = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
     data_loader = DataLoader(data,**inf_params)
     inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+    with open(ENCODER,'rb') as file:
+        encoder = pickle.load(file)
     print('Beginning gradcam evaluation...')
     inf_output = gradcam_eval(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,
-                              device=DEVICE,weights = WEIGHTS,tokenizer = tokenizer)
+                              device=DEVICE,weights = WEIGHTS,tokenizer = tokenizer,encoder = encoder)
     print('Gradcam evaluation complete.')
     with open(f'{INFERENCEFOLDER}{inf_start}_gradcam_output.pkl','wb') as file:
         pickle.dump(inf_output,file)

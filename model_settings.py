@@ -14,5 +14,6 @@ settings_dict = {
     'LOGGINGFOLDER':'logging/',
     'INFERENCEFOLDER':'inference/',
     'TESTFOLDER':'test/',
-    'CHECKPOINTLOC':'checkpoints/21-02-2024_0846/epoch00'
+    'CHECKPOINTLOC':'checkpoints/21-02-2024_0846/epoch00',
+    'ENCODER':'./Data/index_label_mapping.pkl'
 }
