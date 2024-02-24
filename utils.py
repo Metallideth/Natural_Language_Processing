@@ -320,7 +320,7 @@ def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
                 'Distinct_Tokens':distinct_tokens_decoded_list,
                 'Token_Importance':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_scores_norm)},
                 'Token_Rank':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,token_ranking)},
-                'Token_Marginal_Score_Positve':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction)},
+                'Token_Marginal_Score_Positive':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction)},
                 'Token_Marginal_Score_Raw':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction_raw)}
             }
             
