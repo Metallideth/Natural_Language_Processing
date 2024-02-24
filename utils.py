@@ -255,107 +255,75 @@ def model_mini_forward_pass(ids,mask,model):
     pred = model(ids,mask)
     return pred.max().unsqueeze(0)
 
-def gradcam_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
+def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     # inspired by code at https://medium.com/apache-mxnet/let-sentiment-classification-model-speak-for-itself-using-grad-cam-88292b8e4186
     # GradCAM explained in https://arxiv.org/pdf/1610.02391.pdf for image modeling
+    # Score reduction impact method is my own
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
         model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     model_augment = copy.deepcopy(model)
     model_augment.eval()
-    base_model = DistilBertModel.from_pretrained("distilbert-base-uncased")
-    base_model.to(device)
-    # Modify state dict to change parameters
-    # model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][0,0]=50000000
+    model_augment.to(device)
     sequence_list = []
-    model_role = distilbert_uncased_model_role.DistilBERTClass()
-    model_function = distilbert_uncased_model_function.DistilBERTClass()
-    model_level = distilbert_uncased_model_level.DistilBERTClass()
-    model_role.to(device)
-    model_function.to(device)
-    model_level.to(device)
-    # model_role.children() = [x for x in model.children]
-    role_state_dict = model_role.state_dict()
-    function_state_dict = model_function.state_dict()
-    level_state_dict = model_level.state_dict()
-    for role_key, function_key, level_key in zip(model_role.state_dict(), model_function.state_dict(), model_level.state_dict()):
-        role_state_dict[role_key] = model.state_dict()[role_key]
-        function_state_dict[function_key] = model.state_dict()[function_key]
-        level_state_dict[level_key] = model.state_dict()[level_key]
-    model_role.load_state_dict(role_state_dict)
-    model_function.load_state_dict(function_state_dict)
-    model_level.load_state_dict(level_state_dict)
-    model_role.eval()
-    model_function.eval()
-    model_level.eval()
-    ig_role = LayerIntegratedGradients(model_role,model_role.l1.embeddings.word_embeddings)
-    ig_function = LayerIntegratedGradients(model_function,model_function.l1.embeddings.word_embeddings)
-    ig_level = LayerIntegratedGradients(model_level,model_level.l1.embeddings.word_embeddings)
     for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
         this_sequence_dict = {}
+        logits_dict = {}
         targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
+        token_ids = data['ids'].squeeze().to(device)
+        token_masks_vec = torch.tensor([x not in torch.tensor(tokenizer.all_special_ids).to(device) for x in token_ids]).int().to(device)
+        sequence_ex_special_tokens = (token_ids*token_masks_vec)[token_ids*token_masks_vec!=0]
+        distinct_tokens = sequence_ex_special_tokens.unique()
+        # Decoded tokens
+        decoded_sequence = tokenizer.decode(sequence_ex_special_tokens).upper()
+        # Model results before zeroing out any word embedding vectors
+        output_logits = model(data['ids'].to(device),data['mask'].to(device))
+        distinct_tokens_decoded_list = tokenizer.decode(distinct_tokens).upper().split(" ")
+
+        this_sequence_dict['Sequence'] = decoded_sequence
+
+        for decoded_token,token in zip(distinct_tokens_decoded_list,distinct_tokens):
+            # Zero out embedded vector corresponding to token in the augmented model
+            model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token,:] = 0.0
+            # Retrieve logits with the same sequence, but with the information for that vector zeroed out
+            oneout_logits = model_augment(data['ids'].to(device),data['mask'].to(device))
+            # Restore augmented model embedded parameters to their prior values
+            model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token,:] = model.state_dict()['l1.embeddings.word_embeddings.weight'][token,:]
+            logits_dict[decoded_token] = oneout_logits
+
         for key in targets:
-            # Needed to avoid infinite backpropagation graph, we recreate outputs every time
-            # this loop runs
-            output_logits = model(data['ids'].to(device),data['mask'].to(device))
             # Get the predicted label and the actual label returned here, and a flag if the prediction
             # was correct
             pred_index = output_logits[key].squeeze().argmax().item()
             pred_label = encoder['Job {}'.format(key)][pred_index]
-            pred_score = output_logits[key].squeeze().max()
+            pred_score = output_logits[key].squeeze().max().item()
             target_label = encoder['Job {}'.format(key)][targets[key].item()]
             correct_prediction = pred_label == target_label
-            token_ids = data['ids'].squeeze().to(device)
-            token_masks_vec = torch.tensor([x not in torch.tensor(tokenizer.all_special_ids).to(device) for x in token_ids]).int().to(device)
-            # Decoded tokens
-            sequence_ex_special_tokens = (token_ids*token_masks_vec)[token_ids*token_masks_vec!=0]
-            distinct_tokens = sequence_ex_special_tokens.unique()
-            decoded_sequence = tokenizer.decode(sequence_ex_special_tokens).upper()
-            # Now to calculate integrated gradients as described in this article
-            # https://arxiv.org/pdf/2108.13654.pdf
-            weight_tensor = torch.arange(51)/50 #50-step integrated gradient
-            end_embeddings = model.state_dict()['l1.embeddings.word_embeddings.weight'][distinct_tokens]
-            start_embeddings = base_model.state_dict()['embeddings.word_embeddings.weight'][distinct_tokens]
-            integrated_gradients = torch.zeros(end_embeddings.shape).to(device)
-            # Calculate integrated gradients, one token at a time
-            for index,token in enumerate(distinct_tokens):
-                # Set embedding vector to baseline vector
-                model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token] = base_model.state_dict()[
-                    'embeddings.word_embeddings.weight'][token]
-                for weight in weight_tensor:
-                    # Since baseline is zero vector in this case, we can re-define word embeddings as weight multiplied
-                    # by their current embedding
-                    model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token] += weight*(
-                        end_embeddings[index,:]-start_embeddings[index,:])
-                    # Run forward pass
-                    output_logits_ig = model_augment(data['ids'].to(device),data['mask'].to(device))
-                    # Retrieve predicted label score
-                    pred_label_score = output_logits_ig[key].squeeze()[pred_index]
-                    # Run backwards pass
-                    pred_label_score.backward()
-                    # Retrieve gradient
-                    current_embeddings_grad = model_augment.l1.embeddings.word_embeddings.weight.grad[token]
-                    # Integrate the gradient
-                    integrated_gradients[index,:]+=(current_embeddings_grad*((
-                        end_embeddings[index,:]-start_embeddings[index,:])/len(weight_tensor)))
-                model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token] = end_embeddings[index,:]
+            oneout_scores = []
 
-            # Since baseline is zero, we can complete integrated gradients by multiplying by end embeddings
-                
-            gradient_token_index = torch.tensor([x in sequence_ex_special_tokens for x in distinct_tokens]).to(device)
-            unnormalized_token_scores = integrated_gradients.mean(axis = 1)[gradient_token_index]
-            decoded_tokens = tokenizer.decode(distinct_tokens[gradient_token_index]).upper().split(" ")
-            normalized_token_scores = unnormalized_token_scores/unnormalized_token_scores.sum()
-            token_ranking = normalized_token_scores.argsort(descending=True)+1
+            # Now determine share of each token in total score reduction when embedded information vector is zeroed
+            for decoded_token in distinct_tokens_decoded_list:
+                oneout_score = logits_dict[decoded_token][key].squeeze()[pred_index].item()
+                oneout_scores.append(oneout_score)
+            
+            # Now normalize oneout score reduction so that they add up to 1
+            # If the score increases, then the score reduction will be negative. This means that the token
+            # is working against the predicted answer; I'll zero out the importance of these
+            # by applying ReLU
+            oneout_score_reduction = torch.relu(pred_score - torch.tensor(oneout_scores).to(device))
+            oneout_scores_norm = oneout_score_reduction/oneout_score_reduction.sum()
+            token_ranking = (oneout_scores_norm.argsort(descending=True)+1)
+
+            
             this_sequence_dict[key] = {
-                'Sequence':decoded_sequence,
                 'Prediction':pred_label,
                 'Target':target_label,
                 'Correct?':correct_prediction,
-                'Distinct_Tokens':decoded_tokens,
-                'Token_Importance':{k:v.item() for k,v in zip(decoded_tokens,normalized_token_scores)},
-                'Token_Rank':{k:v.item() for k,v in zip(decoded_tokens,token_ranking)}
+                'Distinct_Tokens':distinct_tokens_decoded_list,
+                'Token_Importance':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_scores_norm)},
+                'Token_Rank':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,token_ranking)},
+                'Token_Marginal_Score':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction)}
             }
             
         sequence_list.append(this_sequence_dict)
