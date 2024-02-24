@@ -307,7 +307,8 @@ def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
             # If the score increases, then the score reduction will be negative. This means that the token
             # is working against the predicted answer; I'll zero out the importance of these
             # by applying ReLU
-            oneout_score_reduction = torch.relu(pred_score - torch.tensor(oneout_scores).to(device))
+            oneout_score_reduction_raw = pred_score - torch.tensor(oneout_scores).to(device)
+            oneout_score_reduction = torch.relu(oneout_score_reduction_raw)
             oneout_scores_norm = oneout_score_reduction/oneout_score_reduction.sum()
             token_ranking = (oneout_scores_norm.argsort(descending=True)+1)
 
@@ -319,7 +320,8 @@ def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
                 'Distinct_Tokens':distinct_tokens_decoded_list,
                 'Token_Importance':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_scores_norm)},
                 'Token_Rank':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,token_ranking)},
-                'Token_Marginal_Score':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction)}
+                'Token_Marginal_Score_Positve':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction)},
+                'Token_Marginal_Score_Raw':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_reduction_raw)}
             }
             
         sequence_list.append(this_sequence_dict)
