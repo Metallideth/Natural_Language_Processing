@@ -10,7 +10,7 @@ from collections import defaultdict
 import copy
 from transformers import DistilBertModel
 import captum
-from captum.attr import IntegratedGradients
+from captum.attr import LayerIntegratedGradients
 import distilbert_uncased_model_role, distilbert_uncased_model_function, distilbert_uncased_model_level
 
 def combined_loss(outputs,targets,weights,reduction='mean'):
@@ -249,7 +249,11 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
             if val_accuracy[key] < accstop[key]:
                 acc_flag = False
         if acc_flag:
-            break # accuracy threshold is reached
+            break # accuracy threshold is 
+        
+def model_mini_forward_pass(ids,mask,model):
+    pred = model(ids,mask)
+    return pred.max().unsqueeze(0)
 
 def gradcam_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     # inspired by code at https://medium.com/apache-mxnet/let-sentiment-classification-model-speak-for-itself-using-grad-cam-88292b8e4186
@@ -285,7 +289,9 @@ def gradcam_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     model_role.eval()
     model_function.eval()
     model_level.eval()
-    ig = IntegratedGradients(model_role)
+    ig_role = LayerIntegratedGradients(model_role,model_role.l1.embeddings.word_embeddings)
+    ig_function = LayerIntegratedGradients(model_function,model_function.l1.embeddings.word_embeddings)
+    ig_level = LayerIntegratedGradients(model_level,model_level.l1.embeddings.word_embeddings)
     for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
         this_sequence_dict = {}
         targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
