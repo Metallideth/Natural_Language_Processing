@@ -328,3 +328,81 @@ def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
 
     return sequence_list
 
+def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
+    # Score reduction impact method is my own
+    if checkpointloc is not None:
+        checkpoint = torch.load(checkpointloc)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    model_augment = copy.deepcopy(model)
+    model_augment.eval()
+    model_augment.to(device)
+    sequence_list = []
+    for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
+        this_sequence_dict = {}
+        logits_dict = {}
+        targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
+        token_ids = data['ids'].squeeze().to(device)
+        token_masks_vec = torch.tensor([x not in torch.tensor(tokenizer.all_special_ids).to(device) for x in token_ids]).int().to(device)
+        sequence_ex_special_tokens = (token_ids*token_masks_vec)[token_ids*token_masks_vec!=0]
+        distinct_tokens = sequence_ex_special_tokens.unique()
+        # Decoded tokens
+        decoded_sequence = tokenizer.decode(sequence_ex_special_tokens).upper()
+        # Model results before zeroing out any word embedding vectors
+        output_logits = model(data['ids'].to(device),data['mask'].to(device))
+        distinct_tokens_decoded_list = tokenizer.decode(distinct_tokens).upper().split(" ")
+
+        this_sequence_dict['Sequence'] = decoded_sequence
+
+        for decoded_token,token in zip(distinct_tokens_decoded_list,distinct_tokens):
+            # Zero out embedded vector corresponding to token in the augmented model
+            model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token,:] = 0.0
+            # Retrieve logits with the same sequence, but with the information for that vector zeroed out
+            oneout_logits = model_augment(data['ids'].to(device),data['mask'].to(device))
+            # Restore augmented model embedded parameters to their prior values
+            model_augment.state_dict()['l1.embeddings.word_embeddings.weight'][token,:] = model.state_dict()['l1.embeddings.word_embeddings.weight'][token,:]
+            logits_dict[decoded_token] = oneout_logits
+
+        for key in targets:
+            # Get the predicted label and the actual label returned here, and a flag if the prediction
+            # was correct
+            max_index = output_logits[key].squeeze().argmax().item()
+            # Leave out the max index to see effect on all other
+            this_sequence_dict[key] = []
+            for pred_index in [x for x in range(len(output_logits[key].squeeze())) if x != max_index]:
+                pred_label = encoder['Job {}'.format(key)][pred_index]
+                pred_score = output_logits[key].squeeze()[pred_index].item()
+                oneout_scores = []
+
+            # Now determine share of each token in total score reduction when embedded information vector is zeroed
+                for decoded_token in distinct_tokens_decoded_list:
+                    oneout_score = logits_dict[decoded_token][key].squeeze()[pred_index].item()
+                    oneout_scores.append(oneout_score)
+                
+                # This moves the opposite direction of the impact evaluation, we're now looking for large
+                # increases in score by taking out the word - that means that the word is decreasing the score
+                # a lot, and is thus an anti-keyword
+                # Normalize oneout score increase so that they add up to 1
+                # If the score decreases, then the score increase will be negative. This means that the token
+                # is increasing the prediction of this non-predicted output; I'll zero out the importance of these
+                # by applying ReLU, since we're only interested in tokens that are greatly decreasing the probability
+                # of non-predicted outputs
+                oneout_score_increase_raw = torch.tensor(oneout_scores).to(device) - pred_score
+                oneout_score_increase = torch.relu(oneout_score_increase_raw)
+                oneout_scores_norm = oneout_score_increase/oneout_score_increase.sum()
+                token_ranking = (oneout_scores_norm.argsort(descending=True)+1)
+
+                
+                this_sequence_dict[key].append({
+                    'Anti-Prediction':pred_label,
+                    'Distinct_Tokens':distinct_tokens_decoded_list,
+                    'Token_Importance':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_scores_norm)},
+                    'Token_Rank':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,token_ranking)},
+                    'Token_Marginal_Score_Positive':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_increase)},
+                    'Token_Marginal_Score_Raw':{k:v.item() for k,v in zip(distinct_tokens_decoded_list,oneout_score_increase_raw)}
+                })
+            
+        sequence_list.append(this_sequence_dict)
+
+    return sequence_list
+

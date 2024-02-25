@@ -3,7 +3,7 @@ settings_dict = {
     'TRAIN_BATCH_SIZE':128,
     'VALID_BATCH_SIZE':128,
     'INF_BATCH_SIZE':128,
-    'GRADCAM_BATCH_SIZE':1,
+    'IMPACT_EVAL_BATCH_SIZE':1,
     'EPOCHS':10,
     'LEARNING_RATE':1e-05,
     'WEIGHTS':{'Role':1,'Function':1,'Level':1},

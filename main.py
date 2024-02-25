@@ -15,14 +15,14 @@ from netskope_dataloader import NetSkopeDataset
 from distilbert_uncased_model import DistilBERTClass
 # from distilbert_uncased_model_frozen import DistilBERTClass
 # from distilbert_uncased_model_truncated import DistilBERTClass
-from utils import model_train_loop, model_inference, model_val, impact_eval
+from utils import model_train_loop, model_inference, model_val, impact_eval, antikey_eval
 from model_settings import settings_dict
 import pickle
 import os
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
 # parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'impact_eval')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'antikey_eval')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
@@ -182,9 +182,9 @@ if MODELMODE == 'impact_eval':
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
     DIMENSIONS = settings_dict['DIMENSIONS']
     MAX_LEN = settings_dict['MAX_LEN']
-    GRADCAM_BATCH_SIZE = settings_dict['GRADCAM_BATCH_SIZE']
+    IMPACT_EVAL_BATCH_SIZE = settings_dict['IMPACT_EVAL_BATCH_SIZE']
     inf_params = {
-        'batch_size':GRADCAM_BATCH_SIZE,
+        'batch_size':IMPACT_EVAL_BATCH_SIZE,
         'shuffle':False,
         'num_workers':0
     }
@@ -198,4 +198,28 @@ if MODELMODE == 'impact_eval':
                               device=DEVICE,tokenizer = tokenizer,encoder = encoder)
     print('Impact evaluation complete.')
     with open(f'{INFERENCEFOLDER}{inf_start}_impact_output.pkl','wb') as file:
+        pickle.dump(inf_output,file)
+
+if MODELMODE == 'antikey_eval':
+    model = DistilBERTClass()
+    model.to(DEVICE)
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
+    DIMENSIONS = settings_dict['DIMENSIONS']
+    MAX_LEN = settings_dict['MAX_LEN']
+    IMPACT_EVAL_BATCH_SIZE = settings_dict['IMPACT_EVAL_BATCH_SIZE']
+    inf_params = {
+        'batch_size':IMPACT_EVAL_BATCH_SIZE,
+        'shuffle':False,
+        'num_workers':0
+    }
+    data = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
+    data_loader = DataLoader(data,**inf_params)
+    inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
+    with open(ENCODER,'rb') as file:
+        encoder = pickle.load(file)
+    print('Beginning anti-keyword evaluation...')
+    inf_output = antikey_eval(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,
+                              device=DEVICE,tokenizer = tokenizer,encoder = encoder)
+    print('Anti-keyword evaluation complete.')
+    with open(f'{INFERENCEFOLDER}{inf_start}_antikey_output.pkl','wb') as file:
         pickle.dump(inf_output,file)
