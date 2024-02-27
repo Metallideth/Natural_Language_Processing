@@ -7,13 +7,13 @@ settings_dict = {
     'EPOCHS':20,
     'LEARNING_RATE':1e-05,
     'WEIGHTS':{'Role':1,'Function':1,'Level':1},
-    'INF_WEIGHTS':{'Role': 1.0087123775354698, 'Function': 0.9929106590511017, 'Level': 0.9983769634134283},
+    'INF_WEIGHTS':{'Role': 1.0116539409992857,'Function': 0.990414851774975,'Level': 0.9979312072257394},
     'DIMENSIONS':{'Role':7,'Function':5,'Level':6},
     'ACCSTOP':{'Role':0.999,'Function':0.999,'Level':0.999},
     'RANDOMSEED':2024,
     'LOGGINGFOLDER':'logging/',
     'INFERENCEFOLDER':'inference/',
     'TESTFOLDER':'test/',
-    'CHECKPOINTLOC':None,
+    'CHECKPOINTLOC':'./checkpoints/26-02-2024_1922/epoch08',
     'ENCODER':'./Data/index_label_mapping.pkl'
 }

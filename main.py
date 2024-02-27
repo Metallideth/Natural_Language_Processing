@@ -27,7 +27,6 @@ parser.add_argument('-l','--logging', help = 'boolean, set to True to compute an
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
                     default = 'Data/train.pkl')
-                    # default = 'Data/train_small.csv')
 parser.add_argument('-vd','--valdata', 
                     help = 'path to validation data, for use in model mode training, default = Data/val.pkl', 
                     default = 'Data/val.pkl')
@@ -108,7 +107,10 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE 
             dict_key = column.replace(" Predicted","")
             inf_output[column] = inf_output[column].apply(lambda x: mapping_dict[dict_key][x])
         inf_output = map_historic_to_current_hierarchy(inf_output)
-    input_with_inf = pd.concat([data.data.drop(columns = 'Unnamed: 0'),inf_output],axis = 1)
+    if 'Unnamed: 0' in inf_output.columns:
+        input_with_inf = pd.concat([data.data.drop(columns = 'Unnamed: 0'),inf_output],axis = 1)
+    else:
+        input_with_inf = pd.concat([data.data,inf_output],axis = 1)
     with open(f'{INFERENCEFOLDER}{inf_start}_inference.pkl','wb') as file:
         pickle.dump(input_with_inf, file)
     input_with_inf.to_csv(f'{INFERENCEFOLDER}{inf_start}_inference.csv')
