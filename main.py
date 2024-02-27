@@ -15,18 +15,19 @@ from netskope_dataloader import NetSkopeDataset
 from distilbert_uncased_model import DistilBERTClass
 # from distilbert_uncased_model_frozen import DistilBERTClass
 # from distilbert_uncased_model_truncated import DistilBERTClass
-from utils import model_train_loop, model_inference, model_val, impact_eval, antikey_eval
+from utils import model_train_loop, model_inference, model_val, impact_eval, antikey_eval, map_historic_to_current_hierarchy
 from model_settings import settings_dict
 import pickle
 import os
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
-# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'antikey_eval')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
+# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'inference_production')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
                     default = 'Data/train.pkl')
+                    # default = 'Data/train_small.csv')
 parser.add_argument('-vd','--valdata', 
                     help = 'path to validation data, for use in model mode training, default = Data/val.pkl', 
                     default = 'Data/val.pkl')
@@ -80,7 +81,7 @@ if MODELMODE == 'training':
                      dimensions = DIMENSIONS,accstop=ACCSTOP,logging=LOGGING,loggingfolder=LOGGINGFOLDER,
                      checkpointloc = CHECKPOINTLOC, device = DEVICE)
     
-if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss'):
+if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE == 'inference_production'):
     model = DistilBERTClass()
     model.to(DEVICE)
     tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased', truncation=True, do_lower_case=True)
@@ -100,7 +101,14 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss'):
     inf_output = model_inference(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,device=DEVICE,
                                  model_mode = MODELMODE, weights = WEIGHTS)
     print('Inference complete.')
-    input_with_inf = pd.concat([data.data,inf_output],axis = 1)
+    if MODELMODE == 'inference_production':
+        with open('./Data/index_label_mapping.pkl','rb') as file:
+            mapping_dict = pickle.load(file)
+        for column in inf_output:
+            dict_key = column.replace(" Predicted","")
+            inf_output[column] = inf_output[column].apply(lambda x: mapping_dict[dict_key][x])
+        inf_output = map_historic_to_current_hierarchy(inf_output)
+    input_with_inf = pd.concat([data.data.drop(columns = 'Unnamed: 0'),inf_output],axis = 1)
     with open(f'{INFERENCEFOLDER}{inf_start}_inference.pkl','wb') as file:
         pickle.dump(input_with_inf, file)
     input_with_inf.to_csv(f'{INFERENCEFOLDER}{inf_start}_inference.csv')

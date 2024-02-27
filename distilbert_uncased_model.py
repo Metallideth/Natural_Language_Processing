@@ -14,7 +14,7 @@ class DistilBERTClass(torch.nn.Module):
         self.pre_classifier_function = torch.nn.Linear(768, 768)
         self.pre_classifier_level = torch.nn.Linear(768, 768)
         self.dropout = torch.nn.Dropout(0.3)
-        self.classifier_role = torch.nn.Linear(768, 6)
+        self.classifier_role = torch.nn.Linear(768, 7)
         self.classifier_function = torch.nn.Linear(768, 5)
         self.classifier_level = torch.nn.Linear(768, 6)
 

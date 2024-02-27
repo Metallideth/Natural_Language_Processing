@@ -43,7 +43,7 @@ def consolidate_records(path):
     data = data.replace({'Job Role':['IT FACILITIES', 'IT', 'SENIOR MANAGER, INFORMATION TECHNOLOGY']}, 'IT GENERAL')
     data = data.replace({'Job Role':['BUSINESS SYSTEMS']}, 'SYSTEMS')
     data = data.replace({'Job Role':['SENIOR MANAGER, SECURITY, RISK, AND COMPLIANCE', 'IT/IS COMPLIANCE/RISK/CONTROL STAFF']}, 'GOVERNANCE RISK COMPLIANCE')
-    data.loc[~data['Job Role'].isin(['INFORMATION SECURITY','NETWORKING','IT GENERAL','SYSTEMS','GOVERNANCE RISK COMPLIANCE']) &
+    data.loc[~data['Job Role'].isin(['INFORMATION SECURITY','NETWORKING','IT GENERAL','SYSTEMS','GOVERNANCE RISK COMPLIANCE','DEVELOPMENT']) &
                 ~data['Job Role'].isna(),
                 data.columns == 'Job Role'] = 'NON-ICP'
     

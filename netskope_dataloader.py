@@ -4,12 +4,16 @@ import torch
 from torch.utils.data import Dataset, DataLoader, RandomSampler, SequentialSampler
 from transformers import DistilBertTokenizer, DistilBertModel
 import pickle
+import pandas as pd
 
 class NetSkopeDataset(Dataset):
     def __init__(self, dataframe_path, tokenizer, max_len):
         self.tokenizer = tokenizer
-        with open(dataframe_path,'rb') as file:
-            dataframe = pickle.load(file)
+        if '.pkl' in dataframe_path:
+            with open(dataframe_path,'rb') as file:
+                dataframe = pickle.load(file)
+        if '.csv' in dataframe_path:
+            dataframe = pd.read_csv(dataframe_path, encoding = 'utf-8')
         self.data = dataframe
         self.title = dataframe.Title
         self.targets = self.data.drop(columns='Title')

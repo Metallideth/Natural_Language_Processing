@@ -406,3 +406,6 @@ def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
 
     return sequence_list
 
+def map_historic_to_current_hierarchy(data):
+    x = 1
+
