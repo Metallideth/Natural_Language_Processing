@@ -37,7 +37,7 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
     combined_outputs = []
     if model_mode == 'inference_loss':
         combined_loss_outputs = []
-    for _,data in tqdm(enumerate(data_loader,0)):
+    for _,data in tqdm(enumerate(data_loader,0),total=len(data_loader)):
         output_logits = model(data['ids'].to(device),data['mask'].to(device))
         outputs = []
         for key in output_logits:
