@@ -147,6 +147,7 @@ if MODELMODE == 'user_input':
     # Overwrite when job function = IT and job role = Non-ICP to instead go with the 2nd largest score 
     job_role_nonicp_index = reverse_encoder['Job Role']['NON-ICP']
     job_function_it_index = reverse_encoder['Job Function']['IT']
+    job_level_unknown_index = reverse_encoder['Job Level']['UNKNOWN']
     print('Model loaded.')
     print('Enter Job Title and model will output Role, Function, and Level. Press Ctrl + C to quit.')
     try:
@@ -177,6 +178,12 @@ if MODELMODE == 'user_input':
                         # Whenever overwrite is true, we take the 2nd largest value from role. When it's false, we
                         # take the largest. This is akin to passing in 1-overwrite as an index vector for role_top2
                         key_outputs[key] = encoder[f'Job {key}'][role_top2[np.arange(0,role_top2.shape[0]),1-overwrite].item()]
+                    elif key == 'Level':
+                        level_top2 = np.array(output_logits[key].argsort(dim=1).detach().cpu())[:,-2:]
+                        overwrite = level_top2[:,[-1]] == job_level_unknown_index
+                        overwrite = overwrite[:,0]
+                        # Similar to above rule for role, we overwrite the largest values when overwrite is true
+                        key_outputs[key] = encoder[f'Job {key}'][level_top2[np.arange(0,level_top2.shape[0]),1-overwrite].item()]
                     else:
                         key_outputs[key] = encoder[f'Job {key}'][output_logits[key].argmax(dim=1).detach().cpu().item()]
                 # Some more custom overwrites

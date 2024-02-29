@@ -33,6 +33,7 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
         # Overwrite when job function = IT and job role = Non-ICP to instead go with the 2nd largest score 
         job_role_nonicp_index = reverse_encoder['Job Role']['NON-ICP']
         job_function_it_index = reverse_encoder['Job Function']['IT']
+        job_level_unknown_index = reverse_encoder['Job Level']['UNKNOWN']
     model.eval()
     combined_outputs = []
     if model_mode == 'inference_loss':
@@ -49,6 +50,12 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
                 # Whenever overwrite is true, we take the 2nd largest value from role. When it's false, we
                 # take the largest. This is akin to passing in 1-overwrite as an index vector for role_top2
                 outputs.append(role_top2[np.arange(0,role_top2.shape[0]),1-overwrite].reshape(-1,1))
+            elif (model_mode == 'inference_production') & (key == 'Level'):
+                level_top2 = np.array(output_logits[key].argsort(dim=1).detach().cpu())[:,-2:]
+                overwrite = level_top2[:,[-1]] == job_level_unknown_index
+                overwrite = overwrite[:,0]
+                # Similar to above rule for role, we overwrite the largest values when overwrite is true
+                outputs.append(level_top2[np.arange(0,level_top2.shape[0]),1-overwrite].reshape(-1,1))
             else:
                 outputs.append(np.array(output_logits[key].argmax(dim=1).detach().cpu()).reshape(-1,1))
         if model_mode == 'inference_loss':
