@@ -19,11 +19,20 @@ def partial_loss(outputs,targets,reduction='mean'):
     loss = torch.nn.functional.cross_entropy(outputs,targets,reduction=reduction)
     return loss
 
-def model_inference(model,data_loader,checkpointloc,device,model_mode,weights):
-    
+def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,encoder):
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
         model.load_state_dict(checkpoint['model_state_dict'])
+    if model_mode == 'inference_production':
+        # Build reverse encoder
+        reverse_encoder = {}
+        for key in encoder:
+            reverse_encoder[key] = {}
+            for entry in encoder[key]:
+                reverse_encoder[key][encoder[key][entry]] = entry
+        # Overwrite when job function = IT and job role = Non-ICP to instead go with the 2nd largest score 
+        job_role_nonicp_index = reverse_encoder['Job Role']['NON-ICP']
+        job_function_it_index = reverse_encoder['Job Function']['IT']
     model.eval()
     combined_outputs = []
     if model_mode == 'inference_loss':
@@ -32,7 +41,16 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights):
         output_logits = model(data['ids'].to(device),data['mask'].to(device))
         outputs = []
         for key in output_logits:
-            outputs.append(np.array(output_logits[key].argmax(dim=1).detach().cpu()).reshape(-1,1))
+            if (model_mode == 'inference_production') & (key == 'Role'):
+                role_top2 = np.array(output_logits[key].argsort(dim=1).detach().cpu())[:,-2:]
+                function = np.array(output_logits['Function'].argmax(dim=1).detach().cpu()).reshape(-1,1)
+                overwrite = (function == job_function_it_index) & (role_top2[:,[-1]] == job_role_nonicp_index)
+                overwrite = overwrite[:,0]
+                # Whenever overwrite is true, we take the 2nd largest value from role. When it's false, we
+                # take the largest. This is akin to passing in 1-overwrite as an index vector for role_top2
+                outputs.append(role_top2[np.arange(0,role_top2.shape[0]),1-overwrite].reshape(-1,1))
+            else:
+                outputs.append(np.array(output_logits[key].argmax(dim=1).detach().cpu()).reshape(-1,1))
         if model_mode == 'inference_loss':
             targets = {k: v.to(device) for k, v in data.items() if k not in ['ids','mask']}
             loss = combined_loss(output_logits,targets, weights, reduction='none')
@@ -407,5 +425,22 @@ def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     return sequence_list
 
 def map_historic_to_current_hierarchy(data):
-    x = 1
+    # Overwrite the function for those that have Role = 'Governance Risk Compliance' to be
+    # 'Risk/Legal/Compliance'
+    data.loc[data['Job Role Predicted'] == 'GOVERNANCE RISK COMPLIANCE','Job Function Predicted'] = 'RISK/LEGAL/COMPLIANCE'
+
+    # Overwrite the roles for those that have Function != 'IT' to be 'NONE'
+    data.loc[data['Job Function Predicted'] != 'IT','Job Role Predicted'] = 'NONE'
+    return data
+
+def implement_overrides(title,data,override_table):
+    for _,row in tqdm(enumerate(override_table.iterrows(),0),total=override_table.shape[0]):
+        this_title = row[1].Title
+        this_role = row[1].Role
+        this_function = row[1].Function
+        this_level = row[1].Level
+        data.loc[title == this_title,'Job Role Predicted'] = this_role
+        data.loc[title == this_title,'Job Function Predicted'] = this_function
+        data.loc[title == this_title,'Job Level Predicted'] = this_level
+    return data
 

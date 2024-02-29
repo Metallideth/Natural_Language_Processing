@@ -15,18 +15,21 @@ from netskope_dataloader import NetSkopeDataset
 from distilbert_uncased_model import DistilBERTClass
 # from distilbert_uncased_model_frozen import DistilBERTClass
 # from distilbert_uncased_model_truncated import DistilBERTClass
-from utils import model_train_loop, model_inference, model_val, impact_eval, antikey_eval, map_historic_to_current_hierarchy
+from utils import model_train_loop, model_inference, model_val, impact_eval, antikey_eval, map_historic_to_current_hierarchy, implement_overrides
 from model_settings import settings_dict
 import pickle
 import os
+import numpy as np
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'inference_production')
+# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'user_input')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
-                    default = 'Data/train.pkl')
+                    # default = 'Data/train.pkl')
+                    default = 'Data/train_small.pkl')
+                    # default = 'Data/train_role_reclass.pkl')
 parser.add_argument('-vd','--valdata', 
                     help = 'path to validation data, for use in model mode training, default = Data/val.pkl', 
                     default = 'Data/val.pkl')
@@ -42,6 +45,7 @@ INPUTDATA = args.inputdata
 VALDATA = args.valdata
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 ENCODER = settings_dict['ENCODER']
+OVERRIDE_TABLE = settings_dict['OVERRIDE_TABLE']
 
 if MODELMODE == 'training':
     model = DistilBERTClass()
@@ -93,20 +97,26 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE 
         'shuffle':False,
         'num_workers':0
     }
+    with open(ENCODER,'rb') as file:
+        encoder = pickle.load(file)
     data = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
     data_loader = DataLoader(data,**inf_params)
     inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
     print('Beginning inference...')
     inf_output = model_inference(model=model, data_loader = data_loader,checkpointloc = CHECKPOINTLOC,device=DEVICE,
-                                 model_mode = MODELMODE, weights = WEIGHTS)
+                                 model_mode = MODELMODE, weights = WEIGHTS,encoder = encoder)
     print('Inference complete.')
     if MODELMODE == 'inference_production':
-        with open('./Data/index_label_mapping.pkl','rb') as file:
-            mapping_dict = pickle.load(file)
         for column in inf_output:
             dict_key = column.replace(" Predicted","")
-            inf_output[column] = inf_output[column].apply(lambda x: mapping_dict[dict_key][x])
+            inf_output[column] = inf_output[column].apply(lambda x: encoder[dict_key][x])
+        print('Beginning mapping of historic function/role/level hierarchy to go-forward...')
         inf_output = map_historic_to_current_hierarchy(inf_output)
+        print('Mapping complete.')
+        print('Implementing selected overrides...')
+        override_table = pd.read_csv(OVERRIDE_TABLE,encoding='utf-8')
+        inf_output = implement_overrides(data.title,inf_output,override_table)
+        print('Overrides complete.')
     if 'Unnamed: 0' in inf_output.columns:
         input_with_inf = pd.concat([data.data.drop(columns = 'Unnamed: 0'),inf_output],axis = 1)
     else:
@@ -127,23 +137,56 @@ if MODELMODE == 'user_input':
         encoder = pickle.load(file)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
+    override_table = pd.read_csv(OVERRIDE_TABLE,encoding='utf-8')
+    # Build reverse encoder
+    reverse_encoder = {}
+    for key in encoder:
+        reverse_encoder[key] = {}
+        for entry in encoder[key]:
+            reverse_encoder[key][encoder[key][entry]] = entry
+    # Overwrite when job function = IT and job role = Non-ICP to instead go with the 2nd largest score 
+    job_role_nonicp_index = reverse_encoder['Job Role']['NON-ICP']
+    job_function_it_index = reverse_encoder['Job Function']['IT']
     print('Model loaded.')
     print('Enter Job Title and model will output Role, Function, and Level. Press Ctrl + C to quit.')
     try:
         while True:
             job_title = input('Job Title: ')
-            inputs = tokenizer.encode_plus(job_title,
-                                            add_special_tokens = True,
-                                            max_length = MAX_LEN,
-                                            padding='max_length',
-                                            truncation = True)
-            ids = torch.tensor(inputs['input_ids']).unsqueeze(0).to(DEVICE)
-            mask = torch.tensor(inputs['attention_mask']).unsqueeze(0).to(DEVICE)
-            output_logits = model(ids,mask)
+            job_title = job_title.upper()
+            key_outputs = {}
+            if job_title in list(override_table.Title):
+                this_entry = override_table.loc[override_table.Title == job_title]
+                key_outputs['Role'] = this_entry.Role.item()
+                key_outputs['Function'] = this_entry.Function.item()
+                key_outputs['Level'] = this_entry.Level.item()
+            else:
+                inputs = tokenizer.encode_plus(job_title,
+                                                add_special_tokens = True,
+                                                max_length = MAX_LEN,
+                                                padding='max_length',
+                                                truncation = True)
+                ids = torch.tensor(inputs['input_ids']).unsqueeze(0).to(DEVICE)
+                mask = torch.tensor(inputs['attention_mask']).unsqueeze(0).to(DEVICE)
+                output_logits = model(ids,mask)
+                for key in output_logits:
+                    if key == 'Role':
+                        role_top2 = np.array(output_logits[key].argsort(dim=1).detach().cpu())[:,-2:]
+                        function = np.array(output_logits['Function'].argmax(dim=1).detach().cpu()).reshape(-1,1)
+                        overwrite = (function == job_function_it_index) & (role_top2[:,[-1]] == job_role_nonicp_index)
+                        overwrite = overwrite[:,0]
+                        # Whenever overwrite is true, we take the 2nd largest value from role. When it's false, we
+                        # take the largest. This is akin to passing in 1-overwrite as an index vector for role_top2
+                        key_outputs[key] = encoder[f'Job {key}'][role_top2[np.arange(0,role_top2.shape[0]),1-overwrite].item()]
+                    else:
+                        key_outputs[key] = encoder[f'Job {key}'][output_logits[key].argmax(dim=1).detach().cpu().item()]
+                # Some more custom overwrites
+                if key_outputs['Role'] == 'GOVERNANCE RISK COMPLIANCE':
+                    key_outputs['Function'] = 'RISK/LEGAL/COMPLIANCE'
+                if key_outputs['Function'] != 'IT':
+                    key_outputs['Role'] = 'NONE'
             print('Predictions:')
-            for key in output_logits:
-                pred = encoder[f'Job {key}'][output_logits[key].argmax(dim=1).item()]
-                print(f'Job {key}: {pred}')
+            for key in key_outputs:
+                print(f'Job {key}: {key_outputs[key]}')
             print('')
     except KeyboardInterrupt:
         pass    

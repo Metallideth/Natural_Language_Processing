@@ -15,5 +15,6 @@ settings_dict = {
     'INFERENCEFOLDER':'inference/',
     'TESTFOLDER':'test/',
     'CHECKPOINTLOC':'./checkpoints/26-02-2024_1922/epoch08',
-    'ENCODER':'./Data/index_label_mapping.pkl'
+    'ENCODER':'./Data/index_label_mapping.pkl',
+    'OVERRIDE_TABLE':'./overrides/override_table.csv'
 }
