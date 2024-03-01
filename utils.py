@@ -11,10 +11,12 @@ import copy
 def combined_loss(outputs,targets,weights,reduction='mean'):
     loss = 0
     for key in targets.keys():
+        # Weight cross entropy by category weights
         loss += torch.nn.functional.cross_entropy(outputs[key],targets[key],reduction=reduction)*weights[key]
     return loss
 
 def partial_loss(outputs,targets,reduction='mean'):
+    # For one single output category
     loss = torch.nn.functional.cross_entropy(outputs,targets,reduction=reduction)
     return loss
 
@@ -278,7 +280,8 @@ def model_mini_forward_pass(ids,mask,model):
 def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     # inspired by code at https://medium.com/apache-mxnet/let-sentiment-classification-model-speak-for-itself-using-grad-cam-88292b8e4186
     # GradCAM explained in https://arxiv.org/pdf/1610.02391.pdf for image modeling
-    # Score reduction impact method is my own
+    # Ultimately I didn't end up doing this, used score reduction method
+    # Score reduction impact method is my own making
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
         model.load_state_dict(checkpoint['model_state_dict'])
