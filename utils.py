@@ -68,7 +68,10 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
     if model_mode == 'inference_loss':
         combined_outputs = pd.concat([combined_outputs,pd.DataFrame(np.concatenate(combined_loss_outputs,axis=0))],
                                      axis=1)
-    colnames = ["".join(['Job ',key,' Predicted']) for key in output_logits]
+    if model_mode == 'inference_production':
+        colnames = ["".join(['Job ',key]) for key in output_logits]
+    else:
+        colnames = ["".join(['Job ',key,' Predicted']) for key in output_logits]
     if model_mode == 'inference_loss':
         colnames.append('Loss')
     combined_outputs.columns = colnames
@@ -436,10 +439,10 @@ def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
 def map_historic_to_current_hierarchy(data):
     # Overwrite the function for those that have Role = 'Governance Risk Compliance' to be
     # 'Risk/Legal/Compliance'
-    data.loc[data['Job Role Predicted'] == 'GOVERNANCE RISK COMPLIANCE','Job Function Predicted'] = 'RISK/LEGAL/COMPLIANCE'
+    data.loc[data['Job Role'] == 'GOVERNANCE RISK COMPLIANCE','Job Function'] = 'RISK/LEGAL/COMPLIANCE'
 
     # Overwrite the roles for those that have Function != 'IT' to be 'NONE'
-    data.loc[data['Job Function Predicted'] != 'IT','Job Role Predicted'] = 'NONE'
+    data.loc[data['Job Function'] != 'IT','Job Role'] = 'NONE'
     return data
 
 def implement_overrides(title,data,override_table):
@@ -448,8 +451,8 @@ def implement_overrides(title,data,override_table):
         this_role = row[1].Role
         this_function = row[1].Function
         this_level = row[1].Level
-        data.loc[title == this_title,'Job Role Predicted'] = this_role
-        data.loc[title == this_title,'Job Function Predicted'] = this_function
-        data.loc[title == this_title,'Job Level Predicted'] = this_level
+        data.loc[title == this_title,'Job Role'] = this_role
+        data.loc[title == this_title,'Job Function'] = this_function
+        data.loc[title == this_title,'Job Level'] = this_level
     return data
 

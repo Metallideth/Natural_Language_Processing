@@ -26,7 +26,7 @@ parser.add_argument('-m','--modelmode', help = 'model mode, default = inference_
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
-                    default = 'Data/train.pkl')
+                    default = 'Data/train_small.pkl')
 parser.add_argument('-vd','--valdata', 
                     help = 'path to validation data, for use in model mode training, default = Data/val.pkl', 
                     default = 'Data/val.pkl')
@@ -105,8 +105,7 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE 
     print('Inference complete.')
     if MODELMODE == 'inference_production':
         for column in inf_output:
-            dict_key = column.replace(" Predicted","")
-            inf_output[column] = inf_output[column].apply(lambda x: encoder[dict_key][x])
+            inf_output[column] = inf_output[column].apply(lambda x: encoder[column][x])
         print('Beginning mapping of historic function/role/level hierarchy to go-forward...')
         inf_output = map_historic_to_current_hierarchy(inf_output)
         print('Mapping complete.')
