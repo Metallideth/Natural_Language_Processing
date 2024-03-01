@@ -76,7 +76,7 @@ From the root directory, there are several folders:
 This file was used to create the train, val, test, and their small versions from the original data after it was remapped and condensed. This file can be run from the command line provided the cd command is first used to navigate to the root directory for this package, and the right conda environment with all the necessary packages is activated:
 
 ```
-python 00_Data_Setup.py \<args\>
+python 00_Data_Setup.py <args>
 ```
 
 For more information about the arguments to specify and what the defaults are if you enter nothing, look into the file code or run the following command:
