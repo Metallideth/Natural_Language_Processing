@@ -1,1 +1,3 @@
-# netskope
+# Netskope Job Role/Function/Level Tagging
+
+This package contains all the code you'll need to run a production-level model to tag a series of input Job Titles with their associated Roles, Functions, and Levels, according to the desired future label hierarchy. There is built-in override functionality, as well as the ability to retrain models in the future. A user input mode allows the user to test output tags for title labels that are directly entered into the terminal.
