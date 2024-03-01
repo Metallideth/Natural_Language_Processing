@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import os
 from model_settings import settings_dict
-from collections import defaultdict
 import copy
 
 def combined_loss(outputs,targets,weights,reduction='mean'):
