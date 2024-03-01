@@ -48,13 +48,21 @@ class NetSkopeDataset(Dataset):
         #           if token != tokenizer.cls_token_id]
         #     inputs.insert(0,tokenizer.cls_token_id)
 
-        return {
-            'ids': torch.tensor(inputs['input_ids'], dtype=torch.long),
-            'mask': torch.tensor(inputs['attention_mask'], dtype=torch.long),
-            'Role':torch.tensor(self.targets['Job Role'][index].tolist()),
-            'Function':torch.tensor(self.targets['Job Function'][index].tolist()),
-            'Level':torch.tensor(self.targets['Job Level'][index].tolist())
-        }
+        # If in production mode, targets not included in data, so we add error handling for that case
+        try:
+            return_dict = {
+                'ids': torch.tensor(inputs['input_ids'], dtype=torch.long),
+                'mask': torch.tensor(inputs['attention_mask'], dtype=torch.long),
+                'Role':torch.tensor(self.targets['Job Role'][index].tolist()),
+                'Function':torch.tensor(self.targets['Job Function'][index].tolist()),
+                'Level':torch.tensor(self.targets['Job Level'][index].tolist())
+            }
+        except KeyError:
+            return_dict = {
+                'ids': torch.tensor(inputs['input_ids'], dtype=torch.long),
+                'mask': torch.tensor(inputs['attention_mask'], dtype=torch.long)
+            }
+        return return_dict
 
 if __name__ == '__main__':
     MAX_LEN = 128

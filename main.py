@@ -22,14 +22,11 @@ import os
 import numpy as np
 
 parser = argparse.ArgumentParser(description='Run model training, including hyperparameter tuning if necessary, as well as testing and inference')
-# parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'training')
-parser.add_argument('-m','--modelmode', help = 'model mode, default = training', default = 'inference_production')
+parser.add_argument('-m','--modelmode', help = 'model mode, default = inference_production', default = 'inference_production')
 parser.add_argument('-l','--logging', help = 'boolean, set to True to compute and save logging outputs, default = True', default = True)
 parser.add_argument('-id','--inputdata', 
                     help = 'path to input data. In case of model mode training, this is the training data. For model mode test, this is the test data. For model mode inference, this is the input data for label prediction, default = Data/train.pkl', 
                     default = 'Data/train.pkl')
-                    # default = 'Data/train_small.pkl')
-                    # default = 'Data/train_role_reclass.pkl')
 parser.add_argument('-vd','--valdata', 
                     help = 'path to validation data, for use in model mode training, default = Data/val.pkl', 
                     default = 'Data/val.pkl')
@@ -123,7 +120,7 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE 
         input_with_inf = pd.concat([data.data,inf_output],axis = 1)
     with open(f'{INFERENCEFOLDER}{inf_start}_inference.pkl','wb') as file:
         pickle.dump(input_with_inf, file)
-    input_with_inf.to_csv(f'{INFERENCEFOLDER}{inf_start}_inference.csv')
+    input_with_inf.to_csv(f'{INFERENCEFOLDER}{inf_start}_inference.csv',index=False)
 
 if MODELMODE == 'user_input':
     model = DistilBERTClass()
