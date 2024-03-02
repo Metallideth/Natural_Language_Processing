@@ -90,12 +90,17 @@ for column in target_columns:
 
 # Now apply to validation and test
 
+lead_data_encoded = lead_data.copy()
+
 for column in target_columns:
     label_encoder = label_encoders[column]
     val_data[column] = label_encoder.transform(val_data[column].values)
     test_data[column] = label_encoder.transform(test_data[column].values)
+    lead_data_encoded[column] = label_encoder.transform(lead_data[column].values)
 
 # Reset indexes
+lead_data = lead_data.reset_index().drop(columns='index')
+lead_data_encoded = lead_data_encoded.reset_index().drop(columns='index')
 train_data = train_data.reset_index().drop(columns='index')
 val_data = val_data.reset_index().drop(columns='index')
 test_data = test_data.reset_index().drop(columns='index')
@@ -104,12 +109,20 @@ val_small = val_data.iloc[:1280]
 test_small = test_data.iloc[:1280]
 # Save final files
 
+lead_data.to_csv(f'{DATAFOLDER}lead_data.csv')
+lead_data_encoded.to_csv(f'{DATAFOLDER}lead_data_encoded.csv')
 train_data.to_csv(f'{DATAFOLDER}train.csv')
 train_small.to_csv(f'{DATAFOLDER}train_small.csv')
 val_data.to_csv(f'{DATAFOLDER}val.csv')
 val_small.to_csv(f'{DATAFOLDER}val_small.csv')
 test_data.to_csv(f'{DATAFOLDER}test.csv')
 test_small.to_csv(f'{DATAFOLDER}test_small.csv')
+
+with open(f'{DATAFOLDER}lead_data.pkl','wb') as file:
+    pickle.dump(lead_data,file)
+
+with open(f'{DATAFOLDER}lead_data_encoded.pkl','wb') as file:
+    pickle.dump(lead_data_encoded,file)
 
 with open(f'{DATAFOLDER}train.pkl','wb') as file:
     pickle.dump(train_data,file)
