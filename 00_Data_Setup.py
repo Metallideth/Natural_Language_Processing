@@ -50,7 +50,7 @@ def consolidate_records(path):
                               'IT')
     data = data.replace({'Job Function':['ENGINEERING & TECHNICAL','ENGINEER SASE']},'ENGINEERING')
     data = data.replace({'Job Function':['PURCHASING','SOURCING / PROCUREMENT']},'PROCUREMENT')
-    data = data.replace({'Job Function':['LEGAL','RISK, LEGAL OPERATIONS','LAWYER / ATTORNEY','GOVERNMENTALK AFFAIRS & REGULATORY LAW']},
+    data = data.replace({'Job Function':['LEGAL','RISK, LEGAL OPERATIONS','LAWYER / ATTORNEY','GOVERNMENTAL AFFAIRS & REGULATORY LAW']},
                                 'RISK/LEGAL/COMPLIANCE')
     data.loc[~data['Job Function'].isin(['IT','ENGINEERING','PROCUREMENT','RISK/LEGAL/COMPLIANCE']) &
                 ~data['Job Function'].isna(),
