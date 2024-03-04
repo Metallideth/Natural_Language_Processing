@@ -96,7 +96,37 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE 
     }
     with open(ENCODER,'rb') as file:
         encoder = pickle.load(file)
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY BELOW
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY BELOW
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY BELOW
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY BELOW
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY BELOW
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # May require updating the NetSkopeDataset module in netskope_dataloader.py to suit your data entry point
+    
     data = NetSkopeDataset(INPUTDATA,tokenizer,MAX_LEN)
+    
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY ABOVE
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY ABOVE
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY ABOVE
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY ABOVE
+    # INITIAL DATA FOR INFERENCING STEP IMPORTED IN THE LINE DIRECTLY ABOVE
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+
     data_loader = DataLoader(data,**inf_params)
     inf_start = datetime.now().strftime('%d-%m-%Y_%H%M')
     print('Beginning inference...')
@@ -119,7 +149,37 @@ if  (MODELMODE == 'inference') or (MODELMODE == 'inference_loss') or (MODELMODE 
         input_with_inf = pd.concat([data.data,inf_output],axis = 1)
     with open(f'{INFERENCEFOLDER}{inf_start}_inference.pkl','wb') as file:
         pickle.dump(input_with_inf, file)
+
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY BELOW
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY BELOW
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY BELOW
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY BELOW
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY BELOW
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # Edit this line to modify export location to suit your needs
+
     input_with_inf.to_csv(f'{INFERENCEFOLDER}{inf_start}_inference.csv',index=False)
+    
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY ABOVE
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY ABOVE
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY ABOVE
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY ABOVE
+    # FINAL INFERENCE DATA FOR OUTPUT EXPORTED IN THE LINE DIRECTLY ABOVE
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
 
 if MODELMODE == 'user_input':
     model = DistilBERTClass()

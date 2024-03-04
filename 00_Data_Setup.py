@@ -24,7 +24,14 @@ ENCODING = args.dataencoding
 DATAFOLDER = args.datafolder
 
 def consolidate_records(path):
-    '''path: relative path to the csv file to be fed in for data'''
+    """A function which takes a data input path and cleans the data according to pre-specified data cleaning steps, only required for training.
+    
+    :param path: The path of the original csv data
+    :type path: String, required
+    
+    :return: The dataframe of original data after having been cleaned
+    :rtype: Pandas DataFrame
+    """
     data = pd.read_csv(path,
                         encoding=ENCODING)
     # No need for rows with na input, we'll drop those

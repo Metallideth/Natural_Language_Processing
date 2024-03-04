@@ -1,13 +1,24 @@
 # Inspired by code at https://colab.research.google.com/github/DhavalTaunk08/Transformers_scripts/blob/master/Transformers_multilabel_distilbert.ipynb#scrollTo=zHxRRzqpBf76
 
 import torch
-from torch.utils.data import Dataset, DataLoader, RandomSampler, SequentialSampler
-from transformers import DistilBertTokenizer, DistilBertModel
+from torch.utils.data import Dataset, DataLoader
+from transformers import DistilBertTokenizer
 import pickle
 import pandas as pd
 
 class NetSkopeDataset(Dataset):
+    """Dataset class to feed into pytorch DataLoader so that small pieces of dataset can be fed into the model one batch at a time
+    
+    :param dataframe_path: Path to the dataframe to turn into a Dataset
+    :type dataframe_path: String object, required
+    :param tokenizer: Tokenizer to use to convert input data Titles into a sequence of tokens for the model
+    :type tokenizer: transformers.DistilBertTokenizer object, required
+    :param max_len: The maximum length of an input sequence, at which point the tokenizer will truncate the sequence
+    :type max_len: Integer
+    """
     def __init__(self, dataframe_path, tokenizer, max_len):
+        """Constructor method
+        """
         self.tokenizer = tokenizer
         if '.pkl' in dataframe_path:
             with open(dataframe_path,'rb') as file:
@@ -20,9 +31,22 @@ class NetSkopeDataset(Dataset):
         self.max_len = max_len
     
     def __len__(self):
+        """Length method
+
+        :return: Number of rows in the dataset
+        :rtype: Integer
+        """
         return len(self.title)
 
     def __getitem__(self, index):
+        """Indexing method
+        
+        :param index: The index used to access the desired item
+        :type index: Integer
+
+        :return: A dictionary of input token ids and mask ids, both of which are tensors of integers. If not in production mode, also return a tensor of individual integers for each sequence, one for each of Role, Function, and Level.
+        :rtype: A dictionary of torch integer tensors
+        """
         # title = str(self.title[index])
         # title = " ".join(title.split())
 

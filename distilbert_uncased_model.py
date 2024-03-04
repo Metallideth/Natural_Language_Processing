@@ -7,7 +7,11 @@ import pickle
 from netskope_dataloader import NetSkopeDataset
 
 class DistilBERTClass(torch.nn.Module):
+    """A torch.nn.Module class used to set up the structure of the text model and the supplementary layers to get the output down to the right dimensions.
+    """
     def __init__(self):
+        """Constructor method
+        """
         super(DistilBERTClass, self).__init__()
         self.l1 = DistilBertModel.from_pretrained("distilbert-base-uncased")
         self.pre_classifier_role = torch.nn.Linear(768, 768)
@@ -19,6 +23,15 @@ class DistilBERTClass(torch.nn.Module):
         self.classifier_level = torch.nn.Linear(768, 6)
 
     def forward(self, input_ids, attention_mask):
+        """Forward pass through the network
+        :param input_ids: a tensor of token ids corresponding to input sequences
+        :type input_ids: torch tensor of integers, required
+        :param attention_mask: a tensor of 1s and 0s, with 1 corresponding to non-pad tokens to use for modeling
+        :type attention_mask: torch tensor of integers, required
+
+        :return: A dictionary of tensors corresponding to the model logits for the supplied input tensors
+        :rtype: A dictionary of torch float tensors
+        """
         output_1 = self.l1(input_ids=input_ids, attention_mask=attention_mask)
         hidden_state = output_1[0]
         # Take only the hidden state corresponding to the first token, CLS, as a representation for the entire sequence

@@ -9,6 +9,20 @@ from model_settings import settings_dict
 import copy
 
 def combined_loss(outputs,targets,weights,reduction='mean'):
+    """From the supplied predicted outputs, targets, and weights, computes the weighted cross entropy for each sequence
+    
+    :param outputs: A dictionary of tensors of logit outputs from a model forward pass
+    :type outputs: A dictionary of torch float tensors; each sequence has several values, one for each output class, required
+    :param targets: A dictionary of tensors of target indices corresponding to the correct output values
+    :type targets: A dictionary of torch int tensors; each sequence has one value for the index of the correct output class, required
+    :param weights: A dictionary of weights, one for each of the 3 output fields (Role/Function/Level) to weight for combined loss
+    :type weights: A dictionary of floats, required
+    :param reduction: A string corresponding to how the cross entropy loss will be reduced, as a full batch will flow into each loss computation. Default is mean.
+    :type reduction: A string, optional
+
+    :return: A torch tensor of values corresponding to the combined loss for this batch, if reduced by mean the tensor will have a single value.
+    :rtype: A torch tensor of floats
+    """
     loss = 0
     for key in targets.keys():
         # Weight cross entropy by category weights
@@ -16,11 +30,43 @@ def combined_loss(outputs,targets,weights,reduction='mean'):
     return loss
 
 def partial_loss(outputs,targets,reduction='mean'):
+    """Computes the loss associated with one of the 3 output branches: Role, Function, or Level, based on what's passed in
+
+    :param outputs: A torch tensor of output logits
+    :type outputs: A torch tensor of floats, required
+    :param targets: A torch tensor of integer indices corresponding to the correct classification index
+    :type targets: A torch tensor of integers, required
+    :param reduction: A string corresponding to how the cross entropy loss will be reduced, as a full batch will flow into each loss computation. Default is mean.
+    :type reduction: A string, optional
+
+    :return: A torch tensor of values corresponding to the combined loss for this batch, if reduced by mean the tensor will have a single value.
+    :rtype: A torch tensor of floats
+    """
     # For one single output category
     loss = torch.nn.functional.cross_entropy(outputs,targets,reduction=reduction)
     return loss
 
 def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,encoder):
+    """A method to run the various inference modes from the main.py file
+
+    :param model: An initialized model object built from the distilbert_uncased_model.py file
+    :type model: DistilBERTClass object, required
+    :param data_loader: A dataloader object to feed data into the model
+    :type data_loader: torch.utils.data.DataLoader object, required
+    :param checkpointloc: The path to the checkpoint to use for inference
+    :type checkpointloc: String object, required
+    :param device: The device to use for pytorch computations, either cpu or cuda
+    :type device: String object, required
+    :param model_mode: Model mode configured from parsed arguments from main.py terminal call. See README for details.
+    :type model_mode: String object, required
+    :param weights: For the inference_loss mode, weights used to determine the combined loss
+    :type weights: A dictionary of floats, required
+    :param encoder: Dictionary to translate data integer encodings to string labels
+    :type encoder: A dictionary of strings mapped to integer keys, required
+
+    :return: A dataframe identical to the one passed in with 3 additional columns corresponding to the Role, Function, and Level predicted. Names will be different depending on model_mode.
+    :rtype: Pandas DataFrame.
+    """
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -79,6 +125,34 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
 
 def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,loggingfolder,device,
                 train_start,checkpointloc):
+    """Method for training through a single epoch
+
+    :param epoch: Number index corresponding to the current epoch
+    :type epoch: Integer, required
+    :param model: Model to be trained
+    :type model: DistilBERTClass object, required
+    :param optimizer: Optimizer to manage model updates
+    :type optimizer: torch.optim.Adam, required
+    :param train_loader: DataLoader object to load in training data
+    :type train_loader: torch.utils.data.DataLoader object, required
+    :param weights: Initial weights to use for combined cross entropy loss
+    :type weights: A dictionary of floats, required
+    :param dimensions: Dimensions of output fields
+    :type dimensions: A dictionary of integers, required
+    :param logging: A boolean flag to turn on/off logging during training
+    :type logging: Boolean, required
+    :param loggingfolder: Path to the folder to save logging information
+    :type loggingfolder: String object, required
+    :param device: Device for pytorch computations, either cpu or cuda
+    :type device: String object, required
+    :param train_start: String detailing the date and time (hours, minutes) the training run started, used to create folder for logging and checkpoints
+    :type train_start: String object, required
+    :param checkpointloc: Path to checkpoint used as starting point for training
+    :type checkpointloc: String object, required
+
+    :return: Updated weights based on last 1000 batches accuracy, average training accuracy across the entire epoch by output key, average combined loss across the entire epoch, and confusion matrices by output key 
+    :rtype: A tuple with 4 items: A dictionary of floats, a dictionary of floats, a single float item, and a dictionary of torch integer tensors
+    """
     run_accuracy = {}
     avg_accuracy_latest_1000_batches = {}
     run_conf_mat = {}
@@ -168,6 +242,24 @@ def model_train(epoch,model,optimizer,train_loader,weights,dimensions,logging,lo
     return weights, epoch_training_accuracy, epoch_training_loss, epoch_conf_mat
 
 def model_val(epoch,model,val_loader,weights,dimensions,device):
+    """Method for performing validation during training, also used for test
+
+    :param epoch: Number index corresponding to the current epoch
+    :type epoch: Integer, required
+    :param model: Model to be trained
+    :type model: DistilBERTClass object, required
+    :param val_loader: DataLoader object to load in validation data
+    :type val_loader: torch.utils.data.DataLoader object, required
+    :param weights: Initial weights to use for combined cross entropy loss
+    :type weights: A dictionary of floats, required
+    :param dimensions: Dimensions of output fields
+    :type dimensions: A dictionary of integers, required
+    :param device: Device for pytorch computations, either cpu or cuda
+    :type device: String object, required
+
+    :return: Mean accuracy over the entire dataset, mean loss over the entire dataset, confusion matrix over the entire dataset
+    :rtype: Dictionary of individual float items, dictionary of individual float items, dictionary of torch tensor of integers
+    """
     run_accuracy = {}
     avg_accuracy_latest_1000_batches = {}
     run_conf_mat = {}
@@ -227,6 +319,35 @@ def model_val(epoch,model,val_loader,weights,dimensions,device):
     return avg_accuracy_overall, avg_loss_overall, conf_mat_overall
 
 def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dimensions,accstop,logging,loggingfolder,checkpointloc,device):
+    """Outer loop for training, calls model_train for each epoch and manages per-epoch checkpoints and logging
+    
+    :param epoch: Number index corresponding to the current epoch
+    :type epoch: Integer, required
+    :param model: Model to be trained
+    :type model: DistilBERTClass object, required
+    :param optimizer: Optimizer to manage model updates
+    :type optimizer: torch.optim.Adam, required
+    :param train_loader: DataLoader object to load in training data
+    :type train_loader: torch.utils.data.DataLoader object, required
+    :param val_loader: DataLoader object to load in validation data
+    :type val_loader: torch.utils.data.DataLoader object, required
+    :param weights: Initial weights to use for combined cross entropy loss
+    :type weights: A dictionary of floats, required
+    :param dimensions: Dimensions of output fields
+    :type dimensions: A dictionary of integers, required
+    :param accstop: Accuracy for each output key; once all 3 are reached, training stops on that epoch
+    :type accstop: A dictionary of integers, required
+    :param logging: A boolean flag to turn on/off logging during training
+    :type logging: Boolean, required
+    :param loggingfolder: Path to the folder to save logging information
+    :type loggingfolder: String object, required
+    :param checkpointloc: Path to checkpoint used as starting point for training
+    :type checkpointloc: String object, required
+    :param device: Device for pytorch computations, either cpu or cuda
+    :type device: String object, required
+    
+    :return: None
+    """
     epoch_logging_list = []
     train_start = datetime.now().strftime('%d-%m-%Y_%H%M')
     if logging:
@@ -275,15 +396,26 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
                 acc_flag = False
         if acc_flag:
             break # accuracy threshold is 
-        
-def model_mini_forward_pass(ids,mask,model):
-    pred = model(ids,mask)
-    return pred.max().unsqueeze(0)
 
 def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
-    # inspired by code at https://medium.com/apache-mxnet/let-sentiment-classification-model-speak-for-itself-using-grad-cam-88292b8e4186
-    # GradCAM explained in https://arxiv.org/pdf/1610.02391.pdf for image modeling
-    # Ultimately I didn't end up doing this, used score reduction method
+    """Method for creating the output to be processed into keyword rankings, pairs with notebooks 05 and 10
+
+    :param model: Model to be trained
+    :type model: DistilBERTClass object, required
+    :param data_loader: DataLoader object to load in input data
+    :type data_loader: torch.utils.data.DataLoader object, required
+    :param checkpointloc: Path to checkpoint used as starting point for training
+    :type checkpointloc: String object, required
+    :param device: Device for pytorch computations, either cpu or cuda
+    :type device: String object, required
+    :param tokenizer: Tokenizer to use for the model
+    :type tokenizer: transformers.DistilBertTokenizer object, required
+    :param encoder: Dictionary to translate data integer encodings to string labels
+    :type encoder: A dictionary of strings mapped to integer keys, required
+    
+    :return: A list of dictionaries to be unpacked by the associated notebooks
+    :rtype: A list of dictionaries
+    """
     # Score reduction impact method is my own making
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
@@ -359,6 +491,24 @@ def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     return sequence_list
 
 def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
+    """Method for creating the output to be processed into anti-keyword rankings, pairs with notebooks 06 and 11
+
+    :param model: Model to be trained
+    :type model: DistilBERTClass object, required
+    :param data_loader: DataLoader object to load in input data
+    :type data_loader: torch.utils.data.DataLoader object, required
+    :param checkpointloc: Path to checkpoint used as starting point for training
+    :type checkpointloc: String object, required
+    :param device: Device for pytorch computations, either cpu or cuda
+    :type device: String object, required
+    :param tokenizer: Tokenizer to use for the model
+    :type tokenizer: transformers.DistilBertTokenizer object, required
+    :param encoder: Dictionary to translate data integer encodings to string labels
+    :type encoder: A dictionary of strings mapped to integer keys, required
+    
+    :return: A list of dictionaries to be unpacked by the associated notebooks
+    :rtype: A list of dictionaries
+    """
     # Score reduction impact method is my own
     if checkpointloc is not None:
         checkpoint = torch.load(checkpointloc)
@@ -404,7 +554,7 @@ def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
                 pred_score = output_logits[key].squeeze()[pred_index].item()
                 oneout_scores = []
 
-            # Now determine share of each token in total score reduction when embedded information vector is zeroed
+                # Now determine share of each token in total score reduction when embedded information vector is zeroed
                 for decoded_token in distinct_tokens_decoded_list:
                     oneout_score = logits_dict[decoded_token][key].squeeze()[pred_index].item()
                     oneout_scores.append(oneout_score)
@@ -437,6 +587,14 @@ def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     return sequence_list
 
 def map_historic_to_current_hierarchy(data):
+    """Method to perform some additional steps to convert data outputs from model into the go-forward hierarchy. The next time the model is updated, this method should be removed.
+
+    :param data: Dataframe of output data to change to the new hierarchy
+    :type data: Pandas DataFrame, required
+
+    :return: Augmented DataFrame with updated hierarchy
+    :rtype: Pandas DataFrame
+    """
     # Overwrite the function for those that have Role = 'Governance Risk Compliance' to be
     # 'Risk/Legal/Compliance'
     data.loc[data['Job Role'] == 'GOVERNANCE RISK COMPLIANCE','Job Function'] = 'RISK/LEGAL/COMPLIANCE'
@@ -446,6 +604,18 @@ def map_historic_to_current_hierarchy(data):
     return data
 
 def implement_overrides(title,data,override_table):
+    """Implements overwriting model results based on entries in overrides table.
+
+    :param title: Column from data table corresponding to input Job Titles, search is run through this to see if it matches any Titles in the overrides table
+    :type title: Pandas Series, required
+    :param data: Input data with entries to potentially override
+    :tyep data: Pandas DataFrame, required
+    :param override_table: DataFrame of values to substitute in - these will overwrite entries in data
+    :type override_table: Pandas DataFrame, required
+
+    :return: Original data overwritten where deemed necessary by override table
+    :rtype: Pandas DataFrame
+    """
     for _,row in tqdm(enumerate(override_table.iterrows(),0),total=override_table.shape[0]):
         this_title = row[1].Title
         this_role = row[1].Role
