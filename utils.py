@@ -89,6 +89,23 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
         output_logits = model(data['ids'].to(device),data['mask'].to(device))
         outputs = []
         for key in output_logits:
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            # The following code blocks correspond to when running inference production and overwriting results for
+            # Role or Level based on the new hierarchy. When retraining, all of the historical data should be
+            # restated to the new hierarchy anyways, which means that this code should be unecessary once the
+            # model is retrained and a new "final" inference model is created.
             if (model_mode == 'inference_production') & (key == 'Role'):
                 role_top2 = np.array(output_logits[key].argsort(dim=1).detach().cpu())[:,-2:]
                 function = np.array(output_logits['Function'].argmax(dim=1).detach().cpu()).reshape(-1,1)
@@ -103,6 +120,19 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
                 overwrite = overwrite[:,0]
                 # Similar to above rule for role, we overwrite the largest values when overwrite is true
                 outputs.append(level_top2[np.arange(0,level_top2.shape[0]),1-overwrite].reshape(-1,1))
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+            # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
+            #####################################################################################################################
             else:
                 outputs.append(np.array(output_logits[key].argmax(dim=1).detach().cpu()).reshape(-1,1))
         if model_mode == 'inference_loss':
@@ -595,6 +625,19 @@ def map_historic_to_current_hierarchy(data):
     :return: Augmented DataFrame with updated hierarchy
     :rtype: Pandas DataFrame
     """
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # NOTE: THIS FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THIS FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THIS FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THIS FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THIS FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
     # Overwrite the function for those that have Role = 'Governance Risk Compliance' to be
     # 'Risk/Legal/Compliance'
     data.loc[data['Job Role'] == 'GOVERNANCE RISK COMPLIANCE','Job Function'] = 'RISK/LEGAL/COMPLIANCE'

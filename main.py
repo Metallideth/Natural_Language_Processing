@@ -219,6 +219,23 @@ if MODELMODE == 'user_input':
                 mask = torch.tensor(inputs['attention_mask']).unsqueeze(0).to(DEVICE)
                 output_logits = model(ids,mask)
                 for key in output_logits:
+                    #####################################################################################################################
+                    #####################################################################################################################
+                    #####################################################################################################################
+                    #####################################################################################################################
+                    # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+                    # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+                    # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+                    # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+                    # AFTER RETRAINING, MAKE SURE TO MODIFY THE NEXT SECTION
+                    #####################################################################################################################
+                    #####################################################################################################################
+                    #####################################################################################################################
+                    #####################################################################################################################
+                    # The following code blocks correspond to when running inference production and overwriting results for
+                    # Role or Level based on the new hierarchy. When retraining, all of the historical data should be
+                    # restated to the new hierarchy anyways, which means that this code should be unecessary once the
+                    # model is retrained and a new "final" inference model is created.
                     if key == 'Role':
                         role_top2 = np.array(output_logits[key].argsort(dim=1).detach().cpu())[:,-2:]
                         function = np.array(output_logits['Function'].argmax(dim=1).detach().cpu()).reshape(-1,1)
@@ -240,6 +257,19 @@ if MODELMODE == 'user_input':
                     key_outputs['Function'] = 'RISK/LEGAL/COMPLIANCE'
                 if key_outputs['Function'] != 'IT':
                     key_outputs['Role'] = 'NONE'
+                #####################################################################################################################
+                #####################################################################################################################
+                #####################################################################################################################
+                #####################################################################################################################
+                # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+                # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+                # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+                # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+                # AFTER RETRAINING, MAKE SURE TO MODIFY THE PREVIOUS SECTION
+                #####################################################################################################################
+                #####################################################################################################################
+                #####################################################################################################################
+                #####################################################################################################################
             print('Predictions:')
             for key in key_outputs:
                 print(f'Job {key}: {key_outputs[key]}')
