@@ -13,6 +13,9 @@ This package contains all the code you'll need to run a production-level model t
     * [requirements.txt](#requirementstxt)
     * [utils.py](#utilspy)
     * [main.py](#mainpy)
+5. [Editing Code](#editing-code)
+    * [Data Entry/Exit Points](#data-entryexit-points)
+    * [Model Retraining](#model-retraining)
 
 ## Prerequisites
 
@@ -149,3 +152,30 @@ Note that the --modelmode argument can have many values:
 5. user_input - loads up the model from the checkpoint in model_settings.py to allow user testing for one input at a time, entered into the command terminal.
 6. test - computes model scores on test set and saves them in the specified test folder according to model_settings.py
 7. impact_eval and antikey_eval - both modes used to calculate basis for keyword and antikeyword impact files in inference folder. These take an extremely long time to run, even with a graphics card.
+
+## Editing Code 
+
+There are 2 circumstances under which a user may want to edit the code - to change the data entry/exit points in production inference mode, and to change the inference logic in the case of a model retraining.
+
+### Data Entry/Exit Points
+
+If the user desires to change the data entry/exit points away from the reading in and publishing of CSV files to locations on the network, they can make changes to any or all of the following files:
+
+1. main.py, the code for model_mode "inference", "inference_loss", or "inference_production"
+2. netskope_dataloader.py, the constructor method
+
+Any particular lines of interest will be identified with large commented code blocks before and after, pointing them out.
+
+### Model Retraining
+
+If the model is in production and a significant amount of overrides have been added to the table, the user may wish to recalibrate the model to inherently learn some of the overrides as well as the new hierarchy. The current production model has been trained on the historical hierarchy, so there are a few steps that one would need to do first:
+
+1. Get a historical dataset on the updated go-forward hierarchy. The easiest way to do this would be to run inference_production on the historical dataset, which already produces tags according to the go-forward hierarchy.
+2. Retrain the model on this data, using the training mode as per the instructions laid out above.
+
+With a retrained model, the production inference of that model is likely a lot more accurate and will not need real-time fixes the same way the current model will. There may not be as many issues with, for example, Function IT being associated with Role NON-ICP. As such, the user may want to simplify the end-stage logic that seeks to correct these contradictions. To do this, they can make changes to any or all of the following files:
+
+1. main.py, the code for model_mode "user_input" (if there is any interest in preserving the single input functionality)
+2. utils.py, the model_inference function and map_historic_to_current_hierarchy function. Note that the map_historic_to_current_hierarchy function might not even be necessary for the newly trained model, depending on if it avoids desired hierarchy contradictions.
+
+Any particular lines of interest will be identified with large commented code blocks before and after, pointing them out.

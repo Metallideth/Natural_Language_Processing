@@ -20,11 +20,40 @@ class NetSkopeDataset(Dataset):
         """Constructor method
         """
         self.tokenizer = tokenizer
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY BELOW
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY BELOW
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY BELOW
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY BELOW
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY BELOW
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        # If a change is desired for data import architecture, changes should be made to the following lines
+
         if '.pkl' in dataframe_path:
             with open(dataframe_path,'rb') as file:
                 dataframe = pickle.load(file)
         if '.csv' in dataframe_path:
             dataframe = pd.read_csv(dataframe_path, encoding = 'utf-8')
+        
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY ABOVE
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY ABOVE
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY ABOVE
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY ABOVE
+        # INITIAL DATA IMPORT HANDLED IN THE CODE BLOCK DIRECTLY ABOVE
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
+        #####################################################################################################################
         self.data = dataframe
         self.title = dataframe.Title
         self.targets = self.data.drop(columns='Title')
@@ -47,32 +76,12 @@ class NetSkopeDataset(Dataset):
         :return: A dictionary of input token ids and mask ids, both of which are tensors of integers. If not in production mode, also return a tensor of individual integers for each sequence, one for each of Role, Function, and Level.
         :rtype: A dictionary of torch integer tensors
         """
-        # title = str(self.title[index])
-        # title = " ".join(title.split())
-
-        # inputs = self.tokenizer.encode(
-        #     title,
-        #     None,
-        #     add_special_tokens=True,
-        #     max_length=self.max_len,
-        #     padding='max_length',
-        #     return_token_type_ids=True
-        # )
-        # if isinstance(self.title[index], str):
         inputs = self.tokenizer.encode_plus(self.title[index],
                                     add_special_tokens = True,
                                     max_length = self.max_len,
                                     padding='max_length',
                                     truncation = True)
-        # else:
-        #     inputs = [token for sample in self.title[index].apply(lambda x: tokenizer.encode(x,
-        #                                                                                      add_special_tokens=True,
-        #                                                                                      max_length = self.max_len,
-        #                                                                                      padding='max_length')).tolist() for token in sample 
-        #           if token != tokenizer.cls_token_id]
-        #     inputs.insert(0,tokenizer.cls_token_id)
-
-        # If in production mode, targets not included in data, so we add error handling for that case
+        
         try:
             return_dict = {
                 'ids': torch.tensor(inputs['input_ids'], dtype=torch.long),

@@ -646,6 +646,20 @@ def map_historic_to_current_hierarchy(data):
     data.loc[data['Job Function'] != 'IT','Job Role'] = 'NONE'
     return data
 
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    # NOTE: THE ABOVE FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THE ABOVE FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THE ABOVE FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THE ABOVE FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    # NOTE: THE ABOVE FUNCTION MAY NO LONGER BE NECESSARY IF MODEL IS RETRAINED ON RENEWED HIERARCHY
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+    #####################################################################################################################
+
 def implement_overrides(title,data,override_table):
     """Implements overwriting model results based on entries in overrides table.
 
