@@ -68,7 +68,7 @@ def model_inference(model,data_loader,checkpointloc,device,model_mode,weights,en
     :rtype: Pandas DataFrame.
     """
     if checkpointloc is not None:
-        checkpoint = torch.load(checkpointloc)
+        checkpoint = torch.load(checkpointloc,map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
     if model_mode == 'inference_production':
         # Build reverse encoder
@@ -384,7 +384,7 @@ def model_train_loop(epochs,model,optimizer,train_loader,val_loader,weights,dime
         os.mkdir(f'{loggingfolder}{train_start}')
     os.mkdir(f'checkpoints/{train_start}')
     if checkpointloc is not None:
-        checkpoint = torch.load(checkpointloc)
+        checkpoint = torch.load(checkpointloc,map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         epoch = checkpoint['epoch']
@@ -448,7 +448,7 @@ def impact_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     """
     # Score reduction impact method is my own making
     if checkpointloc is not None:
-        checkpoint = torch.load(checkpointloc)
+        checkpoint = torch.load(checkpointloc,map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     model_augment = copy.deepcopy(model)
@@ -541,7 +541,7 @@ def antikey_eval(model,data_loader,checkpointloc,device,tokenizer,encoder):
     """
     # Score reduction impact method is my own
     if checkpointloc is not None:
-        checkpoint = torch.load(checkpointloc)
+        checkpoint = torch.load(checkpointloc,map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     model_augment = copy.deepcopy(model)

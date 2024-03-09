@@ -33,7 +33,9 @@ TESTFOLDER = settings_dict['TESTFOLDER']
 CHECKPOINTLOC = settings_dict['CHECKPOINTLOC']
 INPUTDATA = args.inputdata
 VALDATA = args.valdata
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+# DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+# Uncomment above line and comment out below line if desire is to run model on cuda-enabled GPU
+DEVICE = 'cpu'
 ENCODER = settings_dict['ENCODER']
 OVERRIDE_TABLE = settings_dict['OVERRIDE_TABLE']
 
@@ -181,7 +183,7 @@ if MODELMODE == 'user_input':
     DIMENSIONS = settings_dict['DIMENSIONS']
     MAX_LEN = settings_dict['MAX_LEN']
     print('Loading model from checkpoint...')
-    checkpoint = torch.load(CHECKPOINTLOC)
+    checkpoint = torch.load(CHECKPOINTLOC, map_location=DEVICE)
     with open(ENCODER,'rb') as file:
         encoder = pickle.load(file)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -298,7 +300,7 @@ if MODELMODE == 'test':
         'num_workers':0
     }
 
-    checkpoint = torch.load(CHECKPOINTLOC)
+    checkpoint = torch.load(CHECKPOINTLOC, map_location=DEVICE)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     test_loader = DataLoader(test,**test_params)
