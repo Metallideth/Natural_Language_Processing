@@ -35,7 +35,7 @@ INPUTDATA = args.inputdata
 VALDATA = args.valdata
 # DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Uncomment above line and comment out below line if desire is to run model on cuda-enabled GPU
-DEVICE = 'cpu'
+DEVICE = torch.device('cpu')
 ENCODER = settings_dict['ENCODER']
 OVERRIDE_TABLE = settings_dict['OVERRIDE_TABLE']
 
